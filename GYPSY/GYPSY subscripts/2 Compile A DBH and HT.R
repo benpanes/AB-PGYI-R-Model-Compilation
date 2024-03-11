@@ -20,7 +20,7 @@ trees[height>0 & height<1.3 & !is.na(dbh),"height"] <- NA # Need to add some cod
 
 # Fix suspected 0 filling
 trees[dbh==0,"dbh"] <- NA
-trees[trees$height==0,"height"] <- NA
+trees[height==0,"height"] <- NA
 
 trees <- left_join(trees[,!"species"],fread("GYPSY data/lookup/species.csv"),by="species_og") # Joines species and species group from a lookup table
 
@@ -31,12 +31,10 @@ trees[!is.na(dbh),"dbh_stat"] <- "MM"
 trees[height<1.3 & !is.na(height),"dbh_stat"] <- "NA"
 trees[!is.na(height), "ht_stat"] <- "MM"
 trees <- trees[!(species%in%c("NO","MS")),]
-trees <- trees[!(tree_type=="B" & is.na(height)),]
+#trees <- trees[!(tree_type=="B" & is.na(height)),] # excludes age trees without heights
 trees <- trees[!(!is.na(height) & height<0.3),]
 
-#trees <- trees[!(trees$species%in%c("AW","BW","PB") &
-#                 (!is.na(trees$height) &
-#                  trees$height<1.3)),]
+#trees <- trees[!(species%in%c("AW","BW","PB") & (!is.na(height) & height<1.3)),] # Excludes deciduous under 1.3m
 
 trees <- trees[!(condition_code1%in%c(1,2,13,14,15)),]
 trees <- trees[!(species%in%c("DC","DD","DU")),] # could be combined with MS and NO
@@ -45,7 +43,7 @@ trees <- trees[,!c("measurement_month","measurement_day","stand_type",
                    "tree_plot_shape","sapling_plot_shape","regen_plot_shape",
                    "contractor","cruiser_1_name","cruiser_2_name","shrub_cover", 
                    "herb_forb_cover","grass_cover","moss_lichen_cover",
-                   "avi_field_call","plot_measurement_comment")]
+                   "avi_field_call","plot_measurement_comment")];gc()
 
 #### Fill missing diameters
 
@@ -64,7 +62,7 @@ trees <- trees[,!c("measurement_month","measurement_day","stand_type",
 temp <- left_join(trees,fread("GYPSY data/lookup/ht_to_dbh.csv"),by="species")
 temp[,"dbh_p"] <- temp[,b1*(height-1.3)^b2*exp(-b3*(height-1.3))]
 trees[height>1.3 & !is.na(height),"dbh_p"] <- temp[height>1.3 & !is.na(height),"dbh_p"]
-rm(temp)
+rm(temp);gc()
 
 i <- !is.na(trees$dbh) & !is.na(trees$dbh_p) & !trees$condition_code1%in%c(5,10) & trees$severity1!=3
 trees$rate0[i] <- trees$dbh[i]/trees$dbh_p[i]
@@ -75,22 +73,27 @@ rate <- trees[i,] %>%
 ## Append revised dbhs to dataset and add category for tracking type of DBH
 trees <- left_join(trees,rate,by=c("company","company_plot_number","measurement_number","species"))
 temp <- trees[!is.na(rate) & !is.na(dbh_p),]
-i <- max(trees$dbh,na.rm=T) # Max predictable DBH, shouldn't be larger than already measured range
-j <- min(trees$dbh,na.rm=T) # Min predictable DBH
-k <- temp$dbh_stat=="XX" & temp$height>1.3 & (temp$dbh_p*temp$rate)<i & (temp$dbh_p*temp$rate)>j
+
+# These aren't in the original compilation, but some of the predicted values are alarming (e.g. >40,000)
+#i <- max(trees$dbh,na.rm=T) # Max predictable DBH, shouldn't be larger than already measured range
+#j <- min(trees$dbh,na.rm=T) # Min predictable DBH
+
+k <- temp$dbh_stat=="XX" & temp$height>1.3 #& (temp$dbh_p*temp$rate)<i & (temp$dbh_p*temp$rate)>j
 temp$dbh_PA[k] <- temp$dbh_p[k] * temp$rate[k]
-i <- temp$dbh_stat=="XX" & (is.na(temp$rate) | (!is.na(temp$rate) & is.na(temp$dbh_PA))) & temp$height>1.3 & !is.na(temp$height) & !is.na(temp$dbh_p) & temp$dbh_p<i & temp$dbh_p>j
-temp$dbh_PU[i] <- temp$dbh_p[i] 
+i <- temp$dbh_stat=="XX" & (is.na(temp$rate) | (!is.na(temp$rate) & is.na(temp$dbh_PA))) & temp$height>1.3 & !is.na(temp$height) & !is.na(temp$dbh_p) #& temp$dbh_p<i & temp$dbh_p>j
+if(sum(i)>0){
+  temp$dbh_PU[i] <- temp$dbh_p[i]
+}else{
+  temp$dbh_PU <- NA
+}
 trees <- left_join(trees, temp[,c("unique","dbh_PA","dbh_PU")],by="unique")
 rm(temp,rate,k)
-trees <- trees[,!c("dbh_p","rate","rate0")]
+trees <- trees[,!c("dbh_p","rate","rate0")];gc()
 
 ## Try to fill in missing DBHs based on one of: previous DBH, subsequent DBH, or previous + growth rate (if available)
 trees$tree_id <- paste(trees$company,trees$company_plot_number,trees$tree_number,sep="_")
 
-trees$dbh_IP <- as.numeric(NA)
-trees$dbh_IS <- as.numeric(NA)
-trees$dbh_IX <- as.numeric(NA)
+trees[,c("dbh_IP","dbh_IS","dbh_IX"):=as.numeric(NA)]
 
 loop <- trees %>%
         group_by(tree_id) %>%
@@ -100,55 +103,53 @@ loop <- trees %>%
                 any(dbh_stat == "NA", na.rm=T)))
 loop <- unique(loop$tree_id)
 temp <- trees[trees$tree_id%in%loop,c("tree_id","unique","measurement_year","dbh_stat","dbh")] # Smaller subset to improve processing time
+temp[,c("lm_yr","nm_yr","l_dbh","n_dbh"):=as.numeric(NA)]
 
-temp$lm_yr <- NA
-temp$nm_yr <- NA
-temp$l_dbh <- NA
-temp$n_dbh <- NA
-
-dbh_check <- function(i){
-  dat <- temp[temp$tree_id==i,]
-  for(j in dat$unique[dat$dbh_stat=="XX"]){
+dbh_check <- function(df,i){
+  dat <- df[tree_id==i,]
+  for(j in dat[dbh_stat=="XX",unique]){
     k <- dat$unique==j
-    m_yr <- dat$measurement_year[k]
-    p_meas <- dat[dat$measurement_year<m_yr,]
-    f_meas <- dat[dat$measurement_year>m_yr,]
-    if("NA"%in%f_meas$dbh_stat){
+    m_yr <- dat[k,measurement_year]
+    p_meas <- dat[measurement_year<m_yr,]
+    f_meas <- dat[measurement_year>m_yr,]
+    if("NA"%in%f_meas[,dbh_stat]){
       dat$dbh_stat[k] <- "NA"
     }
-    if("MM"%in%p_meas$dbh_stat){
-      lm_yr <- max(p_meas$measurement_year[p_meas$dbh_stat=="MM"])
-      dat$lm_yr[k] <- lm_yr
-      dat$l_dbh[k] <- p_meas$dbh[p_meas$measurement_year==lm_yr]
+    if("MM"%in%p_meas[,dbh_stat]){
+      dat$lm_yr[k] <- max(p_meas[dbh_stat=="MM",measurement_year])
+      dat$l_dbh[k] <- p_meas[measurement_year==max(measurement_year[dbh_stat=="MM"]),dbh] # This formatting is a workaround for what seems to be a bug
     } 
-    if("MM"%in%f_meas$dbh_stat){
-      nm_yr <- max(f_meas$measurement_year[f_meas$dbh_stat=="MM"])
-      dat$nm_yr[k] <- nm_yr
-      dat$n_dbh[k] <- f_meas$dbh[f_meas$measurement_year==nm_yr]  
+    if("MM"%in%f_meas[,dbh_stat]){
+      nm_yr <- min(f_meas[dbh_stat=="MM",measurement_year])
+      dat$nm_yr[k] <- min(f_meas[dbh_stat=="MM",measurement_year])
+      dat$n_dbh[k] <- f_meas[measurement_year==min(measurement_year[dbh_stat=="MM"]),dbh]
     }
   }
   dat
-} 
-temp <- rbindlist(lapply(loop,function(i) dbh_check(i)))
+}
 
-i <- !is.na(temp$l_dbh) & !is.na(temp$n_dbh)
-temp$dbh_IX[i] <- round(temp[i,(n_dbh-l_dbh)/(nm_yr-lm_yr)*(measurement_year-lm_yr)+l_dbh],1)
+cl <- makeCluster(cluster.num)
+clusterEvalQ(cl,library(data.table))
+clusterExport(cl, c("temp","loop","dbh_check"))
+temp <- rbindlist(parLapply(cl,loop,function(i) dbh_check(temp,i)))
+stopCluster(cl)
 
-i <- !is.na(temp$l_dbh) & is.na(temp$n_dbh)
-temp$dbh_IP[i] <- temp$l_dbh[i]
-
-i <- is.na(temp$l_dbh) & !is.na(temp$n_dbh)
-temp$dbh_IS[i] <- temp$n_dbh[i]
+temp[!is.na(l_dbh)&!is.na(n_dbh),
+     dbh_IX:=round((n_dbh-l_dbh)/(nm_yr-lm_yr)*(measurement_year-lm_yr)+l_dbh,1)]
+temp[!is.na(l_dbh)&is.na(n_dbh),
+     dbh_IP:=l_dbh]
+temp[is.na(l_dbh)&!is.na(n_dbh),
+     dbh_IS:=n_dbh]
 
 trees <- rows_update(trees,temp[,.(unique,dbh_IP,dbh_IS,dbh_IX,dbh_stat)],by="unique")
 
 ## A number of observations with missing height and diameter, no previous or subsequent measurement from which to populate, use average observed for that plot/mmt/species/tree_type
 temp <- trees[trees$dbh_stat=="MM",] 
 temp <- temp %>%
-        group_by(company,company_plot_number,measurement_number,tree_type,spp_grp) %>%
-        summarize(dbh_IA = mean(dbh))
+  group_by(company,company_plot_number,measurement_number,tree_type,spp_grp) %>%
+  summarize(dbh_IA = mean(dbh))
 trees <- left_join(trees,temp,by=c("company","company_plot_number","measurement_number","tree_type","spp_grp"))
-rm(temp)
+rm("temp");gc()
 
 ## Pick which method hierarchy to use to assign missing DBH values
 i <- trees$dbh_stat=="XX" & trees$height<1.3 & !is.na(trees$height)
@@ -244,7 +245,7 @@ table(trees[,c("tree_type","dbh_stat")])
 plot <- fread("GYPSY data/intermediate/i_plot.csv")
 plot <- distinct(plot)
 trees <- left_join(trees,plot,by=c("company","company_plot_number"))
-rm(plot)
+rm(plot);gc()
 temp <- left_join(trees,fread("GYPSY data/lookup/dbh_to_ht.csv"),by=c("natural_subregion","species"))
 
 # Predict heights for all trees including ones that already have a height
@@ -292,9 +293,7 @@ trees$ht_PA2[i] <- trees$ht_PU[i]*trees$ratio[i]
 trees <- trees[,!c("ratio","freq")]
 
 # Height from previous measurement
-trees$ht_IP <- as.numeric(NA)
-trees$ht_IS <- as.numeric(NA)
-trees$ht_IX <- as.numeric(NA)
+trees[,c("ht_IP","ht_IS","ht_IX"):=as.numeric(NA)]
 
 loop <- trees %>%
         group_by(tree_id) %>%
@@ -302,46 +301,40 @@ loop <- trees %>%
                any(ht_stat == "MM", na.rm=T))
 loop <- unique(loop$tree_id)
 temp <- trees[trees$tree_id%in%loop,c("tree_id","unique","measurement_year","ht_stat","height","ht_IP","ht_IS","ht_IX")] # Smaller subset to improve processing time
+temp[,c("lm_yr","nm_yr","l_dbh","n_dbh"):=as.numeric(NA)]
 
-temp$lm_yr <- NA
-temp$nm_yr <- NA
-temp$l_ht <- NA
-temp$n_ht <- NA
-
-ht_check <- function(i){
-  dat <- temp[temp$tree_id==i,]
-  for(j in dat$unique[dat$ht_stat=="XX"]){
+ht_check <- function(df,i){
+  dat <- df[tree_id==i,]
+  for(j in dat[ht_stat=="XX",unique]){
     k <- dat$unique==j
-    m_yr <- dat$measurement_year[k]
-    p_meas <- dat[dat$measurement_year<m_yr,]
-    f_meas <- dat[dat$measurement_year>m_yr,]
-    if("MM"%in%p_meas$ht_stat){
-      lm_yr <- max(p_meas$measurement_year[p_meas$ht_stat=="MM"])
-      dat$lm_yr[k] <- lm_yr
-      dat$l_ht[k] <- p_meas$height[p_meas$measurement_year==lm_yr]
+    m_yr <- dat[k,measurement_year]
+    p_meas <- dat[measurement_year<m_yr,]
+    f_meas <- dat[measurement_year>m_yr,]
+    if("MM"%in%p_meas[,ht_stat]){
+      dat$lm_yr[k] <- max(p_meas[ht_stat=="MM",measurement_year])
+      dat$l_ht[k] <- p_meas[measurement_year==max(measurement_year[ht_stat=="MM"]),ht] # This formatting is a workaround for what seems to be a bug
     } 
-    if("MM"%in%f_meas$ht_stat){
-      nm_yr <- max(f_meas$measurement_year[f_meas$ht_stat=="MM"])
-      dat$nm_yr[k] <- nm_yr
-      dat$n_ht[k] <- f_meas$height[f_meas$measurement_year==nm_yr]  
+    if("MM"%in%f_meas[,ht_stat]){
+      dat$nm_yr[k] <- min(f_meas[ht_stat=="MM",measurement_year])
+      dat$n_ht[k] <- f_meas[measurement_year==min(measurement_year[ht_stat=="MM"]),ht]  
     }
   }
   dat
 } 
 
 cl <- makeCluster(cluster.num)
+clusterEvalQ(cl,library(data.table))
 clusterExport(cl, c("temp","loop","ht_check"))
 temp <- rbindlist(parLapply(cl,loop,function(i) ht_check(i)))
 stopCluster(cl)
 
-i <- !is.na(temp$l_ht) & !is.na(temp$n_ht)
-temp$ht_IX[i] <- round(temp[i,(n_ht-l_ht)/(nm_yr-lm_yr)*(measurement_year-lm_yr)+l_ht],1)
 
-i <- !is.na(temp$l_ht) & is.na(temp$n_ht)
-temp$ht_IP[i] <- temp$l_ht[i]
-
-i <- is.na(temp$l_ht) & !is.na(temp$n_ht)
-temp$ht_IS[i] <- temp$n_ht[i]
+temp[!is.na(l_ht)&!is.na(n_ht),
+     ht_IX:=round((n_ht-l_ht)/(nm_yr-lm_yr)*(measurement_year-lm_yr)+l_ht,1)]
+temp[!is.na(l_ht)&is.na(n_ht),
+     ht_IP:=l_ht]
+temp[is.na(l_ht)&!is.na(n_ht),
+     ht_IS:=n_ht]
 
 trees <- rows_update(trees,temp[,.(unique,ht_IP,ht_IS,ht_IX,ht_stat)],by="unique")
 
@@ -352,7 +345,7 @@ htavg <- trees[i,] %>%
   summarize(ht=mean(height,na.rm=T))
 
 trees <- left_join(trees,htavg,by=c("company","company_plot_number","measurement_number","tree_type","spp_grp"))
-rm(htavg)
+rm(list=c("htavg","temp"));gc()
 
 i<- trees$ht_stat=="XX" & !is.na(trees$ht)
 trees$ht_IA[i] <- trees$ht[i]
