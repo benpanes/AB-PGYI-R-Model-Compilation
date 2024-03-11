@@ -8,3 +8,5 @@ scripts <- list.files("1. Scripts",full.names=T)
 for(x in scripts){
   source(x, echo=verbose)
 }
+
+test
