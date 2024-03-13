@@ -301,7 +301,7 @@ loop <- trees %>%
                any(ht_stat == "MM", na.rm=T))
 loop <- unique(loop$tree_id)
 temp <- trees[trees$tree_id%in%loop,c("tree_id","unique","measurement_year","ht_stat","height","ht_IP","ht_IS","ht_IX")] # Smaller subset to improve processing time
-temp[,c("lm_yr","nm_yr","l_dbh","n_dbh"):=as.numeric(NA)]
+temp[,c("lm_yr","nm_yr","l_ht","n_ht"):=as.numeric(NA)]
 
 ht_check <- function(df,i){
   dat <- df[tree_id==i,]
@@ -312,11 +312,11 @@ ht_check <- function(df,i){
     f_meas <- dat[measurement_year>m_yr,]
     if("MM"%in%p_meas[,ht_stat]){
       dat$lm_yr[k] <- max(p_meas[ht_stat=="MM",measurement_year])
-      dat$l_ht[k] <- p_meas[measurement_year==max(measurement_year[ht_stat=="MM"]),ht] # This formatting is a workaround for what seems to be a bug
+      dat$l_ht[k] <- p_meas[measurement_year==max(measurement_year[ht_stat=="MM"]),height] # This formatting is a workaround for what seems to be a bug
     } 
     if("MM"%in%f_meas[,ht_stat]){
       dat$nm_yr[k] <- min(f_meas[ht_stat=="MM",measurement_year])
-      dat$n_ht[k] <- f_meas[measurement_year==min(measurement_year[ht_stat=="MM"]),ht]  
+      dat$n_ht[k] <- f_meas[measurement_year==min(measurement_year[ht_stat=="MM"]),height]  
     }
   }
   dat
@@ -325,9 +325,8 @@ ht_check <- function(df,i){
 cl <- makeCluster(cluster.num)
 clusterEvalQ(cl,library(data.table))
 clusterExport(cl, c("temp","loop","ht_check"))
-temp <- rbindlist(parLapply(cl,loop,function(i) ht_check(i)))
+temp <- rbindlist(parLapply(cl,loop,function(i) ht_check(temp,i)))
 stopCluster(cl)
-
 
 temp[!is.na(l_ht)&!is.na(n_ht),
      ht_IX:=round((n_ht-l_ht)/(nm_yr-lm_yr)*(measurement_year-lm_yr)+l_ht,1)]

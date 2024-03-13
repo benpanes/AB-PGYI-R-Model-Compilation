@@ -28,29 +28,17 @@ trees.tap <- left_join(trees,fread("GYPSY data/lookup/natsub.csv"),by="natural_s
 
 trees.tap$natsub[trees$species%in%c("BW","FD","LT","PJ","SE")] <- 0
 
-trees.tap <- left_join(trees.tap,fread(paste0(work.dir,"lookup/taper.csv")),by=c("species","natsub"));gc()
+trees.tap <- left_join(trees.tap,fread("GYPSY data/lookup/taper.csv"),by=c("species","natsub"))
+trees.tap <- trees.tap[,.(company,company_plot_number,tree_number,measurement_number,unique,height,dbh,b1,b2,b3,b4,b5,a0,a1,a2,k7,k8)];gc()
 
 ## Size parameters
-# All
 p <- 0.2250
 stumpH <- 0.3
-topdib <- 0.0125
-  
-#Merchantable
-stumpD <- 13
+topdib <- list("T"=0.0125,
+               "M1"=7,
+               "M2"=10)
+stumpD <- list(13,15)
 min_mlen <- 3.66
-topdibM <- 7
-
-#### Merchantable volume
-## Merchantable height / height ratio (h/H)
-temp <- trees[!is.na(trees$height) & trees$height>=1.3 & !is.na(trees$dbh) & topdibM<trees$dbh,
-              c("unique","height","dbh","b1","b2","b3","b4","b5","a0","a1","a2","k7","k8")]
-
-# Diameter inside bark formula
-dib <- function(x,z){
-  (temp$a0[z]*temp$dbh[z]^temp$a1[z])*(temp$a2[z]^temp$dbh[z])*((1-sqrt(x/temp$height[z]))/(1-sqrt(p)))^
-  (temp$b1[z]*(x/temp$height[z])^2+temp$b2[z]*log(x/temp$height[z]+0.001)+temp$b3[z]*sqrt(x/temp$height[z])+temp$b4[z]*exp(x/temp$height[z])+temp$b5[z]*temp$dbh[z]/temp$height[z])
-}
 
 ## Volume formulae
 # Height ratio formula
@@ -74,7 +62,7 @@ hr <- function(df,i,d,diff=1){
       }
     },timeout=1)
   }, TimeoutException=function(ex){
-    message(paste0("Timeout. Skipping row'",i,"'"))
+    warning(paste0("Timeout. Skipping row'",i,"'"))
   })
   r0
 }
@@ -108,15 +96,15 @@ fvol <- function(df,i){
   sum(v)
 }
 
-#### Calculate merchantable volume
-temp <- trees.tap[dbh>topdibM,]
+#### Calculate merchantable volume 13/7
+temp <- trees.tap[dbh>topdib[["M1"]],]
 
 ## Merchantable height ratio
 len <- nrow(temp)
 cl <- makeCluster(cluster.num)
 clusterEvalQ(cl,library(R.utils))
-clusterExport(cl,c("hr","acc","topdibM","temp","r0","r1","p"))
-temp$r0 <- unlist(parLapply(cl,1:len,function(i) hr(temp,i,topdibM)))
+clusterExport(cl,c("hr","acc","topdib","temp","r0","r1","p"))
+temp$r0 <- unlist(parLapply(cl,1:len,function(i) hr(temp,i,topdib[["M1"]])))
 stopCluster(cl)
 
 ## Stump diameters
@@ -124,7 +112,7 @@ temp$dibs <- dib(temp,1:nrow(temp),stumpH)
 temp$dobs <- temp$k7+temp$k8*temp$dibs
 
 ## Merchantable volume
-temp <- temp[temp$dobs>=stumpD,]
+temp <- temp[temp$dobs>=stumpD[[1]],]
 temp$mh <- temp$height*temp$r0
 temp$ml <- temp$mh-stumpH
 temp$sl <- temp$ml/20
@@ -133,22 +121,54 @@ temp <- temp[ml>min_mlen,]
 len <- nrow(temp)
 cl <- makeCluster(cluster.num)
 clusterExport(cl,c("temp","p","stumpH","dib","fvol"))
-temp$mvol <- unlist(parLapply(cl,1:len,function(x) fvol(temp,x)))
+temp$vol_1307 <- unlist(parLapply(cl,1:len,function(x) fvol(temp,x)))
 stopCluster(cl)
 
-trees.vol <- left_join(trees,temp[,.(company,company_plot_number,tree_number,measurement_number,mvol)],by=c("company","company_plot_number","tree_number","measurement_number"))
-trees.vol[is.na(mvol),"mvol"] <- 0
+trees.vol <- left_join(trees,temp[,.(company,company_plot_number,tree_number,measurement_number,vol_1307)],by=c("company","company_plot_number","tree_number","measurement_number"))
+trees.vol[is.na(vol_1307),"vol_1307"] <- 0
+rm(temp);gc()
+
+#### Calculate merchantable volume 15/10
+temp <- trees.tap[dbh>topdib[["M2"]]]
+
+## Merchantable height ratio
+len <- nrow(temp)
+cl <- makeCluster(cluster.num)
+clusterEvalQ(cl,library(R.utils))
+clusterExport(cl,c("hr","acc","topdib","temp","r0","r1","p"))
+temp$r0 <- unlist(parLapply(cl,1:len,function(i) hr(temp,i,topdib[["M2"]])))
+stopCluster(cl)
+
+## Stump diameters
+temp$dibs <- dib(temp,1:nrow(temp),stumpH)
+temp$dobs <- temp$k7+temp$k8*temp$dibs
+
+## Merchantable volume
+temp <- temp[temp$dobs>=stumpD[[2]],]
+temp$mh <- temp$height*temp$r0
+temp$ml <- temp$mh-stumpH
+temp$sl <- temp$ml/20
+temp <- temp[ml>min_mlen,]
+
+len <- nrow(temp)
+cl <- makeCluster(cluster.num)
+clusterExport(cl,c("temp","p","stumpH","dib","fvol"))
+temp$vol_1510 <- unlist(parLapply(cl,1:len,function(x) fvol(temp,x)))
+stopCluster(cl)
+
+trees.vol <- left_join(trees.vol,temp[,.(company,company_plot_number,tree_number,measurement_number,vol_1510)],by=c("company","company_plot_number","tree_number","measurement_number"))
+trees.vol[is.na(vol_1510),"vol_1510"] <- 0
 rm(temp);gc()
 
 #### Calculate total volume
-temp <- trees.tap[dbh>topdib,]
+temp <- trees.tap[dbh>topdib[["T"]],]
 
 ## Height ratio
 len <- nrow(temp)
 cl <- makeCluster(cluster.num)
 clusterEvalQ(cl,library(R.utils))
 clusterExport(cl,c("hr","acc","topdib","temp","r0","r1","p"))
-temp$r0 <- unlist(parLapply(cl,1:len,function(i) hr(temp,i,topdib)))
+temp$r0 <- unlist(parLapply(cl,1:len,function(i) hr(temp,i,topdib[["T"]])))
 stopCluster(cl)
 
 ## Stump diameters
@@ -165,13 +185,16 @@ cl <- makeCluster(cluster.num)
 clusterExport(cl,c("temp","p","stumpH","dib","fvol"))
 tvol <- unlist(parLapply(cl,1:len,function(x) fvol(temp,x)))
 stopCluster(cl)
-temp$tvol <- tvol+pi*(topdib/200)^2*(temp$height-temp$mh)/3+pi*(temp$dibs/200)^2*stumpH
+temp$vol_0000 <- tvol+pi*(topdib[["T"]]/200)^2*(temp$height-temp$mh)/3+pi*(temp$dibs/200)^2*stumpH
 
-trees.vol <- left_join(trees.vol,temp[,.(company,company_plot_number,tree_number,measurement_number,tvol)],by=c("company","company_plot_number","tree_number","measurement_number"))
-trees.vol[is.na(tvol),"tvol"] <- 0
-rm(temp);gc()
+trees.vol <- left_join(trees.vol,temp[,.(company,company_plot_number,tree_number,measurement_number,vol_0000)],by=c("company","company_plot_number","tree_number","measurement_number"))
+trees.vol[is.na(vol_0000),"vol_0000"] <- 0
 
-fwrite(trees.vol,"GYPSY data/intermediate/i_tree_ages.csv") # wrong output
+##### Left off at the at the end of the volume calculation section (before biomass)
+
+
+
+fwrite(trees.vol,"GYPSY data/intermediate/i_tree_list1.csv") # unfinished output
 
 minutes <- round(Sys.time()-start_time)
 seconds <- round((Sys.time()-start_time-minutes)*60)
