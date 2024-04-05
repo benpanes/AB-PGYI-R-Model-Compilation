@@ -14,7 +14,7 @@ trees$ba <- ((trees$dbh/200)^2)*pi
 i <- trees$tree_type%in%c("T","ET")
 trees$sph[i] <- 10000/trees$tree_plot_area[i]
 
-i <- trees$tree_type%in%c("S","ES")
+i <- trees$tree_type%in%c("S1","ES1")
 trees$sph[i] <- 10000/trees$sapling_plot_area[i]
 
 i <- trees$tree_type%in%c(paste0("R",1:10))
@@ -196,7 +196,7 @@ trees.vol[is.na(vol_0000),"vol_0000"] <- 0
 
 trees.bio <- trees.vol %>%
   mutate(
-    biomass = if_else(dbh < 15 | vol_1307 == 0,
+    biomass_tree = if_else(dbh < 15 | vol_1307 == 0,
                       case_when(
                         species == 'AW' ~ 0.26738 + 0.01917 * dbh * dbh * height,
                         species == 'BW' ~ 2.47035 + 0.02454 * dbh * dbh * height,
@@ -223,6 +223,7 @@ trees.bio <- trees.vol %>%
                         TRUE ~ NA_real_
                       )
     ),
+    biomass = biomass_tree * sph,
     carbon = biomass * 0.5
   )
 

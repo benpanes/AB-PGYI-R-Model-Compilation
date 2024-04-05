@@ -3,7 +3,7 @@
 #/***************************/
 start_time <- Sys.time()
 
-treelist <- fread("GYPSY data/intermediate/i_tree_list.csv")
+treelist <- fread("GYPSY data/intermediate/i_tree_list1.csv")
 regen <- fread("GYPSY data/intermediate/i_regeneration.csv")
 plot <- fread("GYPSY data/intermediate/i_plot.csv")
 plot_mm <- fread("GYPSY data/intermediate/i_plot_measurement.csv")
@@ -114,9 +114,6 @@ plot <- treelist  %>%
     sphD91 = ifelse(dbh >= 9.1, sph, NA_real_)
   ) %>%
   filter(!(height < 1.3 | grepl("R", tree_type)))  # Remove regen without the saplings falling back under 1.3m
-
-
-
 
 ################################################################################
 # Create plot2 at spp level
@@ -340,4 +337,4 @@ plot_level1 <- plot_level1 %>%
     sphD91,	ba,	vol_0000,	vol_1307,	vol_1510,	biomass,	carbon,	SphRegen,	regendone
   )
 
-fwrite("GYPSY data/intermediate/i_plot_level1.csv")
+fwrite(plot_level1, "GYPSY data/intermediate/i_plot_level1.csv")
