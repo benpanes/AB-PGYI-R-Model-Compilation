@@ -192,9 +192,62 @@ trees.vol[is.na(vol_0000),"vol_0000"] <- 0
 
 ##### Left off at the at the end of the volume calculation section (before biomass)
 
+# biomass and carbon calculation
 
+trees.bio <- trees.vol %>%
+  mutate(
+    biomass = if_else(dbh < 15 | vol_1307 == 0,
+                      case_when(
+                        species == 'AW' ~ 0.26738 + 0.01917 * dbh * dbh * height,
+                        species == 'BW' ~ 2.47035 + 0.02454 * dbh * dbh * height,
+                        species == 'FA' ~ 7.03447 + 0.01477 * dbh * dbh * height,
+                        species %in% c('FB', 'FD') ~ 7.94339 + 0.01465 * dbh * dbh * height,
+                        species %in% c('LT', 'LA', 'LW') ~ 4.48372 + 0.01768 * dbh * dbh * height,
+                        species == 'PB' ~ 10.74706 + 0.01350 * dbh * dbh * height,
+                        species == 'PJ' ~ 2.91931 + 0.01678 * dbh * dbh * height,
+                        species %in% c('PL', 'PW', 'PF', 'PX') ~ 8.18267 + 0.01597 * dbh * dbh * height,
+                        species == 'SB' ~ 2.79552 + 0.01698 * dbh * dbh * height,
+                        species %in% c('SW', 'SE', 'SX') ~ 6.03377 + 0.01500 * dbh * dbh * height,
+                        TRUE ~ NA_real_
+                      ),
+                      case_when(
+                        species == 'AW' ~ 499.508 * vol_1307 ^ 0.980765,
+                        species == 'BW' ~ 703.360 * vol_1307 ^ 0.946751,
+                        species == 'FA' ~ 434.694 * vol_1307 ^ 0.903315,
+                        species %in% c('FB', 'FD') ~ 444.532 * vol_1307 ^ 0.873007,
+                        species == 'PJ' ~ 477.288 * vol_1307 ^ 0.983019,
+                        species %in% c('PL', 'PW', 'PF', 'PX') ~ 436.564 * vol_1307 ^ 0.962308,
+                        species %in% c('LT', 'LA', 'LW') ~ 530.347 * vol_1307 ^ 0.922289,
+                        species == 'SB' ~ 516.226 * vol_1307 ^ 1.001660,
+                        species %in% c('SW', 'SE', 'SX') ~ 451.544 * vol_1307 ^ 0.958852,
+                        TRUE ~ NA_real_
+                      )
+    ),
+    carbon = biomass * 0.5
+  )
 
-fwrite(trees.vol,"GYPSY data/intermediate/i_tree_list1.csv") # unfinished output
+treelist <- trees.bio %>%
+  mutate(
+    vol_1510 = ifelse(tree_type == 'B' | height < 1.3, 0, vol_1510),
+    vol_1307 = ifelse(tree_type == 'B' | height < 1.3, 0, vol_1307),
+    vol_0000 = ifelse(tree_type == 'B' | height < 1.3, 0, vol_0000),
+    biomass = ifelse(tree_type == 'B' | height < 1.3, 0, biomass),
+    carbon = ifelse(tree_type == 'B' | height < 1.3, 0, carbon)
+  ) %>%
+  filter(tree_type != 'B') %>%
+  select(company, company_plot_number, measurement_number, measurement_year, tree_number, 
+         tree_location, tree_origin, tree_type, species, distance, azimuth, dbh, height, 
+         crown_class, condition_code1, severity1, condition_code2, severity2, condition_code3, 
+         severity3, ht_stat, dbh_stat, ba, sph, vol_0000, vol_1307, vol_1510, biomass, carbon, spp_grp, condec) 
+
+fwrite(treelist,"GYPSY data/intermediate/i_tree_list1.csv") 
+
+tree_ages <- trees.bio %>%
+  filter(!(total_age %in% c(0, NA) & stump_age %in% c(0, NA) & dbh_age %in% c(0, NA))) %>%
+  filter(!(tree_origin %in% c(9, 10))) %>%
+  filter(ht_stat %in% c('MM', 'IX', 'PU')) 
+
+fwrite(tree_ages,"GYPSY data/intermediate/i_tree_age.csv")
 
 minutes <- round(Sys.time()-start_time)
 seconds <- round((Sys.time()-start_time-minutes)*60)
