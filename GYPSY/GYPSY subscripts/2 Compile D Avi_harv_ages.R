@@ -74,7 +74,7 @@ photo2a <- photo2 %>%
 # take nonforested and modifer info from both layers and remove duplicates
 photo3 <- photo.avi %>%
   filter(layer_type == 1) %>%  # Select rows where layer_type is 1
-  select(company, company_plot_number, avi_version, polygon_number, year_photography, year_photo_call, photo_layer_avi_comment) %>%
+  select(company, company_plot_number, avi_version, polygon_number, year_photography, year_photo_call, photo_avi_layer_comment) %>%
   arrange(company, company_plot_number, avi_version, polygon_number, year_photography, year_photo_call)
 
 # merge photo1 and photo2a to fill missing info
@@ -193,7 +193,7 @@ fire <- disturbance %>%
   mutate(fire_orig = disturbance_year) %>%
   filter(disturbance_code == "DF") %>%
   select(company, company_plot_number, fire_orig)%>%
-  arrange(fire, company, company_plot_number)
+  arrange(fire_orig, company, company_plot_number)
 
 fireharv <- merge(harv4, fire, by = c("company", "company_plot_number"), all.x = TRUE)
 

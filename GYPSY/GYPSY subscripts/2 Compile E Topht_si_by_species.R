@@ -1,7 +1,7 @@
-treeage <- read.csv(""GYPSY data/intermediate/i_tree_age.csv")
+treeage <- read.csv("GYPSY data/intermediate/i_tree_age.csv")
 plot_level2 <- read.csv("GYPSY data/intermediate/i_plot_level2.csv")
-plot_mmt <- fread(""GYPSY data/intermediate/i_plot_measurement.csv")
-tree_list1 <- fread(""GYPSY data/intermediate/tree_list1.csv")
+plot_mmt <- fread("GYPSY data/intermediate/i_plot_measurement.csv")
+tree_list1 <- fread("GYPSY data/intermediate/i_tree_list1.csv")
   
 ################################################################################
 #  STEP 1. fill in missing ages & remove duplicates - goal to have an age for both total and breast height, where available
@@ -268,7 +268,7 @@ plot_level2 <- plot_level2 %>%
 site4 <- site3 %>% 
   arrange(company, company_plot_number, scale, species)
  
-plot_level2 <- plot_level_2 %>%
+plot_level2 <- plot_level2 %>%
   arrange(company, company_plot_number, scale, species)
 
 site5 <- left_join(plot_level2, site3, by = c("company", "company_plot_number", "scale", "species")) 
@@ -582,7 +582,7 @@ pgyi_compiled <- site11 %>%
   ) %>%
   select(
     company, company_plot_number, establishment_year, measurement_number, measurement_year, measurement_month,
-    standage, stand_type, scale, species, sphRegen, sphBH, sphD15, sphD91, ba, vol_0000, vol_1307, vol_1510,
+    standage, stand_type, scale, species, SphRegen, sphBH, sphD15, sphD91, ba, vol_0000, vol_1307, vol_1510,
     biomass, carbon, topht_n, topht, topht_stat, age_n, age_tot, age_bh, age_max, age_harv, age_fire, age_avi,
     si_n, si_bh, fmu, fma, opening_number, sampling_unit_number, topographic_position, elevation, slope, aspect,
     x_coord, y_coord, utm_zone, datum, latitude, longitude, natural_subregion, ecosite_guide, ecosite,
@@ -597,7 +597,7 @@ pgyi_compiled <- site11 %>%
     mmt_yr = measurement_year,
     mmt_mo = measurement_month,
     age = standage,
-    sphRegenOnly = sphRegen,
+    sphRegenOnly = SphRegen,
     opening = opening_number,
     su = sampling_unit_number,
     topo = topographic_position,
@@ -619,4 +619,4 @@ pgyi_compiled <- site11 %>%
   )  
 
 
-fwrite(pgyi_compiled, ""GYPSY data/intermediate/i_pgyi_compiled.csv")
+fwrite(pgyi_compiled, "GYPSY data/intermediate/i_pgyi_compiled.csv")

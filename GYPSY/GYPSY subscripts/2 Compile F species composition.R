@@ -131,6 +131,6 @@ strata2 <- compos_2 %>%
 
 pgyi.compiledstratified <- ba %>%
   left_join(strata2, by = "co_plot") %>%
-  select(-c(co_plot, totba, totregden, conba, conregden, decba, decregden, pinba, pinregden, sfba, sfregden, sbba, sbregden, pjba, pjregden, firba, firregden, bwba, pbba, pbregden, bwregden))
+  select(-c(co_plot, totba, totregden, conba, conregden, decba, decregden, pinba, pinregden, sfba, sfregden, sbba, sbregden, pjba, pjregden, firba, firregden, bwba, pbba, pbregden, bwregden)) 
 
 fwrite(pgyi.compiledstratified, "GYPSY data/intermediate/i_pgyi.compiledstratified.csv")

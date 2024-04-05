@@ -307,33 +307,5 @@ plot_level1 <- plot_level1 %>%
     sphD91,	ba,	vol_0000,	vol_1307,	vol_1510,	biomass,	carbon,	SphRegen,	regendone
   )
 
-# Replace missing values with 0 
-plot_level1 <- plot_level1 %>%
-  mutate(
-    sph = ifelse(is.na(sph), 0, sph),
-    sphBH = ifelse(is.na(sphBH), 0, sphBH),
-    sphD15 = ifelse(is.na(sphD15), 0, sphD15),
-    sphD91 = ifelse(is.na(sphD91), 0, sphD91),
-    ba = ifelse(is.na(ba), 0, ba),
-    vol_0000 = ifelse(is.na(vol_0000), 0, vol_0000),
-    vol_1307 = ifelse(is.na(vol_1307), 0, vol_1307),
-    vol_1510 = ifelse(is.na(vol_1510), 0, vol_1510),
-    biomass = ifelse(is.na(biomass), 0, biomass),
-    carbon = ifelse(is.na(carbon), 0, carbon),
-    SphRegen = ifelse(regendone == 1 & is.na(SphRegen), 0, SphRegen)
-  )
-
-# Remove rows where species is "NO" or blank
-plot_level1 <- plot_level1 %>%
-  filter(!(species %in% c("NO", ""))) %>%
-  select(
-    company,	company_plot_number,	plot_program,	establishment_year,	fmu,	fma,	opening_number,
-    sampling_unit_number,	topographic_position,	elevation,	slope,	aspect,	x_coord,	y_coord,	utm_zone,	
-    datum,	latitude,	longitude,	natural_subregion,	ecosite_guide,	ecosite,	ecosite_phase,	shared,	measurement_number,	
-    measurement_year,	measurement_month,	stand_origin,	plot_type,	stand_type,	tree_plot_area,	tree_tagging_limit,	
-    sapling_plot_area,	sapling_tagging_limit_dbh,	sapling_tagging_limit_height,	number_sapling_plots,	regen_plot_area,	
-    regen_tagging_limit_conifer,	regen_tagging_limit_decid,	number_regen_plots,	scale,	species,	sph,	sphBH,	sphD15,	
-    sphD91,	ba,	vol_0000,	vol_1307,	vol_1510,	biomass,	carbon,	SphRegen,	regendone
-  )
 
 fwrite(plot_level1, "GYPSY data/intermediate/i_plot_level1.csv")

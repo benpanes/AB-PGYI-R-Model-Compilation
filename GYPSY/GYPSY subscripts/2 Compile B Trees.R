@@ -224,7 +224,10 @@ trees.bio <- trees.vol %>%
                       )
     ),
     biomass = biomass_tree * sph,
-    carbon = biomass * 0.5
+    carbon = biomass * 0.5,
+    vol_1307 = vol_1307 * sph,
+    vol_1510 = vol_1510 * sph,
+    vol_0000 = vol_0000 * sph
   )
 
 treelist <- trees.bio %>%
