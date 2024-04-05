@@ -7,10 +7,10 @@ start_time <- Sys.time()
 
 photo.avi <- fread("GYPSY data/intermediate/i_photo_avi.csv")
 plot <- fread("GYPSY data/intermediate/i_plot.csv")
-plot_mmt <- fread(""GYPSY data/intermediate/i_plot_measurement.csv")
-treatment <- fread(""GYPSY data/intermediate/i_treatment.csv")
-disturbance <- fread(""GYPSY data/intermediate/i_disturbance.csv")
-plot_level1 <- fread(""GYPSY data/intermediate/i_plot_level1.csv")
+plot_mmt <- fread("GYPSY data/intermediate/i_plot_measurement.csv")
+treatment <- fread("GYPSY data/intermediate/i_treatment.csv")
+disturbance <- fread("GYPSY data/intermediate/i_disturbance.csv")
+plot_level1 <- fread("GYPSY data/intermediate/i_plot_level1.csv")
   
 ################################################################################
 ### STEP 1. append avi-based origin year to plot summary table;
