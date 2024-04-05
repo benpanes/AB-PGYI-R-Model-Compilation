@@ -58,10 +58,10 @@ allregencounts <- allregencounts %>%
   mutate(totalregencount = sum(totalregen))
 
 totalregen <- allregencounts
-regendensity <- merge(totalregen, plot_mm, by = c("company", "company_plot_number", "measurement_number"), all.x = TRUE)
+regendensity_0 <- merge(totalregen, plot_mm, by = c("company", "company_plot_number", "measurement_number"), all.x = TRUE)
 
 # Calculate sphRegen
-regendensity <- regendensity %>%
+regendensity <- regendensity_0 %>%
   mutate(
     SphRegen = totalregencount * 10000 / (regen_plot_area * number_regen_plots),
     spp_grp = case_when(
@@ -72,8 +72,8 @@ regendensity <- regendensity %>%
       TRUE ~ NA_character_
     ),
     condec = case_when(
-      species %in% c("AW", "PB", "BW", "AX", "PL", "PJ", "PW", "PF", "PX", "PA", "LT", "LA", "LW") ~ "DEC",
-      species %in% c("SW", "SE", "SX", "FB", "FA", "FD", "SB") ~ "CON",
+      species %in% c("AW", "PB", "BW", "AX") ~ "DEC",
+      species %in% c("SW", "SE", "SX", "FB", "FA", "FD", "SB", "PL", "PJ", "PW", "PF", "PX", "PA", "LT", "LA", "LW") ~ "CON",
       TRUE ~ NA_character_
     )
   ) %>%
@@ -133,8 +133,7 @@ plot2 <- plot %>%
     vol_1307 = sum(vol_1307, na.rm = TRUE),
     vol_1510 = sum(vol_1510, na.rm = TRUE),
     biomass = sum(biomass, na.rm = TRUE),
-    carbon = sum(carbon, na.rm = TRUE),
-    .groups = "drop"
+    carbon = sum(carbon, na.rm = TRUE)
   )
 
 # Merge regendensity and plot2
@@ -227,7 +226,7 @@ plot5$species <- 'TO'
 plot5$scale <- 'con_dec'
 
 plot5a <- plot5 %>%
-  left_join(totalregen, by = c("company", "company_plot_number", "measurement_number", "species"))
+  left_join(totregden, by = c("company", "company_plot_number", "measurement_number"))
 ################################################################################
 # combine
 
@@ -251,8 +250,8 @@ cols_to_drop <- c("company_stand_number", "establishment_month", "establishment_
                   "tree_plot_shape", "sapling_plot_shape", "regen_plot_shape", "plot_status", 
                   "ats_township", "ats_range", "ats_meridian", "ats_section")
 
-plot <- fread("H:/Shared drives/Model Comparison/Compilation_Code_R/PGYI Compiled/i_plot.csv")
-plot_mm <- fread("H:/Shared drives/Model Comparison/Compilation_Code_R/PGYI Compiled/i_plot_measurement.csv")
+plot <- fread("GYPSY data/intermediate/i_plot.csv")
+plot_mm <- fread("GYPSY data/intermediate/i_plot_measurement.csv")
 
 mmt <- plot_mm %>%
   left_join(plot, by = c("company", "company_plot_number")) %>%
