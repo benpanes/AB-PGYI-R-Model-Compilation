@@ -9,7 +9,11 @@ trees <- trees[!(trees$tree_type%in%c("T","ET") & (trees$tree_plot_area==0 | is.
                !(trees$tree_type%in%c("S","ES") & (trees$sapling_plot_area==0 | is.na(trees$sapling_plot_area))) &
                !(trees$tree_type%in%c(paste0("R",1:10)) & (trees$regen_plot_area==0 | is.na(trees$regen_plot_area))),]
 
-trees$ba <- ((trees$dbh/200)^2)*pi
+trees$index_1 <- paste(trees$company, trees$company_plot_number, trees$measurement_number, trees$tree_number, sep = "_")
+trees_chk <- read.csv("H:/Shared drives/Growth & Yield Lab/Data Sets/PGYI/2023-09-08 PGYI Compiled/2_interim/trees2_chk.csv") 
+trees_list_chk <- read.csv("H:/Shared drives/Growth & Yield Lab/Data Sets/PGYI/2023-09-08 PGYI Compiled/2_interim/tree_list1.csv") 
+ 
+trees$ba <- ((trees$dbh/200)^2)*3.14159
 
 i <- trees$tree_type%in%c("T","ET")
 trees$sph[i] <- 10000/trees$tree_plot_area[i]
@@ -24,8 +28,24 @@ i <- trees$tree_type=="B"
 trees$sph[i] <- 0
 trees$ba[i] <- 0
 
+# assign new species names 
+trees <- trees %>%
+  mutate(species = case_when(
+    species_og %in% c("AW", "AX") ~ "AW",
+    species_og == "BW" ~ "BW",
+    species_og == "PB" ~ "PB",
+    species_og %in% c("LA", "LT", "LW") ~ "LT",
+    species_og %in% c("P", "PX", "PF", "PL", "PW") ~ "PL",
+    species_og == "PJ" ~ "PJ",
+    species_og %in% c("FA", "FB") ~ "FB",
+    species_og == "FD" ~ "FD",
+    species_og %in% c("SE", "SW", "SX") ~ "SW",
+    species_og == "SB" ~ "SB"
+  ))
+
 trees.tap <- left_join(trees,fread("GYPSY data/lookup/natsub.csv"),by="natural_subregion")
 
+# changed species to species_og for testing purpose
 trees.tap$natsub[trees$species%in%c("BW","FD","LT","PJ","SE")] <- 0
 
 trees.tap <- left_join(trees.tap,fread("GYPSY data/lookup/taper.csv"),by=c("species","natsub"))
@@ -75,7 +95,7 @@ dib <- function(df,i,x){
 
 # Volume formula
 fvol <- function(df,i){
-  svol <- function(df,i){(2*df$sl[i]/6)*0.00007854*(d0^2+4*d1^2+d2^2)}
+  svol <- function(df,i){(2*df$sl[i]/6)*((1/200)^2*pi)*(d0^2+4*d1^2+d2^2)}
   v <- c()
   h0 <- stumpH
   d0 <- df$dibs[i]
@@ -238,7 +258,9 @@ treelist <- trees.bio %>%
     biomass = ifelse(tree_type == 'B' | height < 1.3, 0, biomass),
     carbon = ifelse(tree_type == 'B' | height < 1.3, 0, carbon)
   ) %>%
-  filter(tree_type != 'B') %>%
+  filter(
+    tree_type != "B"
+  ) %>%
   select(company, company_plot_number, measurement_number, measurement_year, tree_number, 
          tree_location, tree_origin, tree_type, species, distance, azimuth, dbh, height, 
          crown_class, condition_code1, severity1, condition_code2, severity2, condition_code3, 

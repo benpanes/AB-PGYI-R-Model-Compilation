@@ -14,13 +14,6 @@ tagged_regen <- treelist %>%
   mutate(regeneration_plot_name = tree_type) %>%
   filter(height < 1.3 & grepl("R", tree_type, fixed = TRUE)) # Output if height<1.3 and "R" in tree_type
 
-##############################################################################  
-
-# export regen sized trees for inclusion in regen density calculations;
-tagged_regen <- treelist %>%
-  mutate(regeneration_plot_name = tree_type) %>%
-  filter(height < 1.3 & grepl("R", tree_type, fixed = TRUE)) # Output if height<1.3 and "R" in tree_type
-
 # KJS additions for regen start here
 tagged_regen_count <- tagged_regen %>%
   arrange(company, company_plot_number, measurement_number, species, regeneration_plot_name) %>%
@@ -77,7 +70,8 @@ regendensity <- regendensity_0 %>%
       TRUE ~ NA_character_
     )
   ) %>%
-  select(company, company_plot_number, measurement_number, species, spp_grp, condec, SphRegen)
+  select(company, company_plot_number, measurement_number, species, spp_grp, condec, SphRegen) %>%
+  distinct() 
 
 # In compilation code, 3 df are created for sppgrp, condec, and sph
 # Calculate SphRegen for each spp_grp
@@ -121,14 +115,15 @@ plot2 <- plot %>%
   arrange(company, company_plot_number, measurement_number, species) %>%
   group_by(company, company_plot_number, measurement_number, species) %>%
   mutate(
-    scale = "species"
+    scale = "species",
+    baha = ba * sph
   ) %>%
   summarise(
     sph = sum(sph, na.rm = TRUE),
     sphBH = sum(sphBH, na.rm = TRUE),
     sphD15 = sum(sphD15, na.rm = TRUE),
     sphD91 = sum(sphD91, na.rm = TRUE),
-    ba = sum(ba, na.rm = TRUE),
+    ba = sum(baha, na.rm = TRUE),
     vol_0000 = sum(vol_0000, na.rm = TRUE),
     vol_1307 = sum(vol_1307, na.rm = TRUE),
     vol_1510 = sum(vol_1510, na.rm = TRUE),
@@ -141,17 +136,7 @@ plot2$scale <- "species"
 plot2a <- plot2 %>%
   left_join(regendensity, by = c("company", "company_plot_number", "measurement_number", "species"))
 
-# Replace missing values with 0
-plot2a[is.na(plot2a$sph), "sph"] <- 0
-plot2a[is.na(plot2a$sphBH), "sphBH"] <- 0
-plot2a[is.na(plot2a$sphD15), "sphD15"] <- 0
-plot2a[is.na(plot2a$sphD91), "sphD91"] <- 0
-plot2a[is.na(plot2a$ba), "ba"] <- 0
-plot2a[is.na(plot2a$vol_0000), "vol_0000"] <- 0
-plot2a[is.na(plot2a$vol_1307), "vol_1307"] <- 0
-plot2a[is.na(plot2a$vol_1510), "vol_1510"] <- 0
-plot2a[is.na(plot2a$biomass), "biomass"] <- 0
-plot2a[is.na(plot2a$carbon), "carbon"] <- 0
+fwrite(plot, "H:/Shared drives/Growth & Yield Lab/Data Sets/PGYI/2023-09-08 PGYI Compiled/2_interim/i_plot_2.csv")
 ################################################################################
 # Create plot3 at spp group level
 plot3 <- plot %>%
@@ -162,7 +147,7 @@ plot3 <- plot %>%
     sphBH = sum(sphBH, na.rm = TRUE),
     sphD15 = sum(sphD15, na.rm = TRUE),
     sphD91 = sum(sphD91, na.rm = TRUE),
-    ba = sum(ba),
+    ba = sum(ba, na.rm = TRUE),
     vol_0000 = sum(vol_0000, na.rm = TRUE),
     vol_1307 = sum(vol_1307, na.rm = TRUE),
     vol_1510 = sum(vol_1510, na.rm = TRUE),

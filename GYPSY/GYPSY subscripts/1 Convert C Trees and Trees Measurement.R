@@ -5,6 +5,9 @@ trees_measurement <- fread(paste0(input.dir,"/trees_measurement.csv"), na.string
 trees$id <- paste(trees$company,trees$company_plot_number,trees$tree_number,sep="_")
 trees_measurement$id <- paste(trees_measurement$company,trees_measurement$company_plot_number,trees_measurement$tree_number,sep="_")
 
+################################################################################
+trees_mmt_chk <- read.csv("H:/Shared drives/Growth & Yield Lab/Data Sets/PGYI/2023-09-08 PGYI Compiled/2_interim/tree_list1.csv") 
+
 # Report trees with no measurements or vice versa
 id_list <- unique(append(trees$id,trees_measurement$id))
 trees_report <- data.frame(id = id_list, error = as.character(NA))
@@ -40,7 +43,8 @@ trees_merge <- trees_merge[!(tree_type!="B" &
 trees_merge[tree_type!="B" & 
               (!is.na(dbh_age)|
                  !is.na(stump_age)|
-                 !is.na(total_age)),"tree_type"] <- "B"
+                 !is.na(total_age))&
+                  tree_location=="BP","tree_type"] <- "B"
 
 # Fix improper use of species="No"
 trees_merge[species=="No" &

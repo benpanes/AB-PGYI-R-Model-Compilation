@@ -1,0 +1,144 @@
+---
+title: "test"
+author: "Shuxiang"
+date: "2024-04-09"
+output: html_document
+---
+
+```{r}
+library("haven")
+library("ggplot2")
+library("patchwork")
+library("dplyr")
+library("R.utils")
+library("parallel")
+options(scipen=999)
+cluster.num <- 20 # might need to check this (number of cpu threads)
+```
+
+```{r}
+r_output <- pgyi.compiledstratified
+
+sas_output <- fread("H:/Shared drives/Growth & Yield Lab/Data Sets/PGYI/2023-09-08 PGYI Compiled/3_final/PGYIcompiledstratified.csv")
+
+treelist_output <- fread("H:/Shared drives/Growth & Yield Lab/Data Sets/PGYI/2023-09-08 PGYI Compiled/2_interim/tree_list1.csv")
+```
+
+```{r}
+
+test_sas <- sas_output %>%
+  filter(vol_0000 > 0.0001,
+         scale == "spp_grp") %>%
+  select(
+   company, plot, mmt_num, mmt_yr, age, species, stand_type, sphRegenOnly, sphBH, ba, vol_0000, vol_1307, vol_1510
+  ) %>%
+  # group_by(company, plot, mmt_num, mmt_yr, age, stand_type) %>%
+  # summarise(
+  #   sphRegenOnly = mean(sphRegenOnly, na.rm = TRUE),
+  #   sphBH = mean(sphBH, na.rm = TRUE),
+  #   sphD15 = mean(sphD15, na.rm = TRUE),
+  #   sphD91 = mean(sphD91, na.rm = TRUE),
+  #   ba = mean(ba, na.rm = TRUE),
+  #   vol_0000 = mean(vol_0000, na.rm = TRUE),
+  #   vol_1307 = mean(vol_1307, na.rm = TRUE),
+  #   vol_1510 = mean(vol_1510, na.rm = TRUE),
+  #   biomass = mean(biomass, na.rm = TRUE),
+  #   carbon = mean(carbon, na.rm = TRUE)
+  #   # topht_n = mean(topht_n, na.rm = TRUE),
+  #   # topht = mean(topht, na.rm = TRUE),
+  #   # topht_stat = first(topht_stat, na.rm = TRUE)
+  # )%>%
+  filter_all(all_vars(!is.infinite(.) & !is.na(.)))
+  
+test_r <- r_output %>%
+  filter(vol_0000 > 0.0001,
+         scale == "spp_grp") %>%
+  select(
+   company, plot, mmt_num, mmt_yr, age, species, stand_type, sphRegenOnly, sphBH, ba, vol_0000, vol_1307, vol_1510
+  ) %>%
+  # group_by(company, plot, mmt_num, mmt_yr, age, stand_type) %>%
+  # summarise(
+  #   sphRegenOnly = mean(sphRegenOnly, na.rm = TRUE),
+  #   sphBH = mean(sphBH, na.rm = TRUE),
+  #   sphD15 = mean(sphD15, na.rm = TRUE),
+  #   sphD91 = mean(sphD91, na.rm = TRUE),
+  #   ba = mean(ba, na.rm = TRUE),
+  #   vol_0000 = mean(vol_0000, na.rm = TRUE),
+  #   vol_1307 = mean(vol_1307, na.rm = TRUE),
+  #   vol_1510 = mean(vol_1510, na.rm = TRUE),
+  #   biomass = mean(biomass, na.rm = TRUE),
+  #   carbon = mean(carbon, na.rm = TRUE)
+  #   # topht_n = mean(topht_n, na.rm = TRUE),
+  #   # topht = mean(topht, na.rm = TRUE),
+  #   # topht_stat = first(topht_stat, na.rm = TRUE)
+  # ) %>%
+  filter_all(all_vars(!is.infinite(.) & !is.na(.)))
+
+diff_1 <- anti_join(test_sas, test_r, by = c("company", "plot", "mmt_num", "mmt_yr", "stand_type"))
+diff_2 <- anti_join(test_sas, test_r, by = c("company", "plot", "mmt_num", "mmt_yr", "stand_type"))
+
+test_r_removed <- anti_join(test_r, diff_1,by = c("company", "plot", "mmt_num", "mmt_yr", "stand_type"))
+test_sas_removed <- anti_join(test_sas, diff_2,by = c("company", "plot", "mmt_num", "mmt_yr", "stand_type"))
+
+summary(test_r_removed)
+summary(test_sas_removed)
+  
+  
+```  
+
+```{r}
+test_visual <- test_sas_removed %>%
+  left_join(test_r_removed, by = c("company", "plot", "mmt_num", "mmt_yr", "species", "stand_type")) %>%
+  filter_all(all_vars(!is.infinite(.) & !is.na(.))) %>%
+  rename_with(~sub("\\.x$", ".sas", .), ends_with(".x")) %>%
+  rename_with(~sub("\\.y$", ".r", .), ends_with(".y")) %>%
+  mutate(
+    sphregen_diff = sphRegenOnly.sas / sphRegenOnly.r,
+    sphBH_diff = sphBH.sas / sphBH.r,
+    vol_diff = vol_0000.sas-vol_0000.r
+  )
+
+ggplot(test_visual, aes(x = sphRegenOnly.sas, y = sphRegenOnly.r, color = company)) +
+  geom_point(alpha = 0.5, size = 2) 
+  
+ggplot(test_visual, aes(x = sphBH.sas, y = sphBH.r, color = company)) +
+  geom_point(alpha = 0.5, size = 2) 
+ 
+# ggplot(test_visual, aes(x = ba.sas, y = ba.r, color = company)) +
+#  geom_point(alpha = 0.5, size = 2) 
+ 
+ggplot(test_visual, aes(x = vol_0000.sas, y = vol_0000.r, color = company)) +
+  geom_point(alpha = 0.5, size = 2) 
+ 
+# ggplot(test_visual, aes(x = topht.sas, y = topht.r, color = company)) +
+#   geom_point(alpha = 0.5, size = 2) 
+
+```
+
+```{r}
+
+test_df <- plot_level1 %>%
+  select(company, plot, mmt_num, mmt_yr, age, species, stand_type, sphRegenOnly, sphBH, ba, vol_0000, vol_1307, vol_1510)
+
+count <- treelist %>%
+  filter(
+    company == "GOA",
+    company_plot_number == "4003.1",
+    measurement_number == "7",
+    species == "PL"
+  )
+
+count_sas <- treelist_output %>%
+  filter(
+    company == "GOA",
+    company_plot_number == "4003.1",
+    measurement_number == "7",
+    species == "PL"
+  )
+
+
+plot_output <- fread("H:/Shared drives/Growth & Yield Lab/Data Sets/PGYI/2023-09-08 PGYI Compiled/2_interim/test_plot.csv")
+plot_level1_output <- fread("H:/Shared drives/Growth & Yield Lab/Data Sets/PGYI/2023-09-08 PGYI Compiled/2_interim/plot_level1.csv")
+
+
+```

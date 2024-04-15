@@ -297,7 +297,7 @@ trees$ht_PA1[i] <- trees$ht_PU.x[i]*trees$ratio[i]
 trees <- trees[,!c("ratio","freq")]
 
 # Attempt 2 - ratio by species and plot only (to fill in missing after attempt #1)
-height_ratio <- temp %>% 
+height_ratio_2 <- temp %>% 
   group_by(company,company_plot_number,species) %>%
   summarize(freq=sum(!is.na(height)&!is.na(ht_PU)),
             height_r=mean(height,na.rm=T),
@@ -305,16 +305,11 @@ height_ratio <- temp %>%
   mutate(
     ratio=height_r/ht_PU
   )
-trees <- left_join(trees,height_ratio,by=c("company","company_plot_number","species"))
-rm(height_ratio)
+trees <- left_join(trees,height_ratio_2,by=c("company","company_plot_number","species"))
+#rm(height_ratio)
 i <- trees$freq>3 & !is.na(trees$freq) & trees$ht_stat=="XX"
 trees$ht_PA2[i] <- trees$ht_PU.x[i]*trees$ratio[i]
 trees <- trees[,!c("ratio","freq")]
-
-trees_test_0 <- trees %>%
-  select(
-    company, company_plot_number, tree_number, measurement_year, species, dbh, height, ht_stat, ht_PU, ht_PA1, ht_PA2
-  )
 
 # Height from previous measurement
 trees[,c("ht_IP","ht_IS","ht_IX"):=as.numeric(NA)]
@@ -375,9 +370,18 @@ temp <- temp %>%
     ht_IX = if_else(l_ht > n_ht, NA, round((n_ht-l_ht)/(nm_yr-lm_yr)*(measurement_year-lm_yr)+l_ht,1))
   )
 
+trees_1 <- trees %>%
+  select(-c(ht_IP, ht_IS, ht_IX,))
 
-trees <- rows_update(trees,temp[,.(unique,ht_IP,ht_IS,ht_IX,ht_stat)],by="unique")
+trees_2 <- trees_1 %>%
+  left_join(temp %>% select(ht_IP, ht_IS, ht_IX, ht_stat, unique), by = "unique") %>%
+  mutate(ht_PU = coalesce(ht_PU.x, ht_PU, ht_PU.y)) %>%
+  mutate(ht_stat = coalesce(ht_stat.x, ht_stat.y))
 
+trees_origin <- trees
+
+trees <- trees_2
+################
 # Average height by species / measurement / tree type
 i <- trees$ht_stat=="MM"
 htavg <- trees[i,] %>% 
@@ -387,10 +391,10 @@ htavg <- trees[i,] %>%
 trees <- left_join(trees,htavg,by=c("company","company_plot_number","measurement_number","tree_type","spp_grp"))
 #rm(list=c("htavg","temp"));gc()
 
+
 i<- trees$ht_stat=="XX" & !is.na(trees$ht)
 trees$ht_IA[i] <- trees$ht[i]
 trees <- trees[,!"ht"]
-
 
 # Assignment rules for which height to select
 i <- trees$ht_stat=="XX" & !is.na(trees$dbh) & trees$dbh>0 & !is.na(trees$ht_IX) & trees$ht_IX>=1.3
@@ -450,9 +454,9 @@ trees$height <- round(trees$height,2)
 i <- !is.na(trees$dbh) & trees$dbh==0 & !is.na(trees$height) & trees$height>=1.3
 trees$dbh[i] <- 0.1
 
-trees <- trees[!is.na(trees$height) & trees$height>0.3,]
+trees_3 <- trees[!is.na(trees$height) & trees$height>0.3,]
 
-trees_test <- trees %>%
+trees_test <- trees_3 %>%
   select(
     company, company_plot_number, tree_number, measurement_year, unique, species, dbh, height, dbh_stat, ht_PU, ht_PA1, ht_PA2, ht_IP, ht_IS, ht_IX, ht_IA
   )
