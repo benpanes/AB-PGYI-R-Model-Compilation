@@ -135,19 +135,20 @@ plot2 <- plot %>%
 plot2$scale <- "species"
 plot2a <- plot2 %>%
   left_join(regendensity, by = c("company", "company_plot_number", "measurement_number", "species"))
-
-fwrite(plot, "H:/Shared drives/Growth & Yield Lab/Data Sets/PGYI/2023-09-08 PGYI Compiled/2_interim/i_plot_2.csv")
 ################################################################################
 # Create plot3 at spp group level
 plot3 <- plot %>%
   arrange(company, company_plot_number, measurement_number, spp_grp) %>%
   group_by(company, company_plot_number, measurement_number, spp_grp) %>%
+  mutate(
+    baha = ba * sph
+  ) %>%
   summarise(
     sph = sum(sph, na.rm = TRUE),
     sphBH = sum(sphBH, na.rm = TRUE),
     sphD15 = sum(sphD15, na.rm = TRUE),
     sphD91 = sum(sphD91, na.rm = TRUE),
-    ba = sum(ba, na.rm = TRUE),
+    ba = sum(baha, na.rm = TRUE),
     vol_0000 = sum(vol_0000, na.rm = TRUE),
     vol_1307 = sum(vol_1307, na.rm = TRUE),
     vol_1510 = sum(vol_1510, na.rm = TRUE),
@@ -165,12 +166,15 @@ plot3a <- plot3 %>%
 plot4 <- plot %>%
   arrange(company, company_plot_number, measurement_number, condec) %>%
   group_by(company, company_plot_number, measurement_number, condec) %>%
+  mutate(
+    baha = ba * sph
+  ) %>%
   summarise(
     sph = sum(sph, na.rm = TRUE),
     sphBH = sum(sphBH, na.rm = TRUE),
     sphD15 = sum(sphD15, na.rm = TRUE),
     sphD91 = sum(sphD91, na.rm = TRUE),
-    ba = sum(ba, na.rm = TRUE),
+    ba = sum(baha, na.rm = TRUE),
     vol_0000 = sum(vol_0000, na.rm = TRUE),
     vol_1307 = sum(vol_1307, na.rm = TRUE),
     vol_1510 = sum(vol_1510, na.rm = TRUE),
@@ -192,12 +196,15 @@ plot4a <- plot4 %>%
 plot5 <- plot %>%
   arrange(company, company_plot_number, measurement_number, condec) %>%
   group_by(company, company_plot_number, measurement_number) %>%
+  mutate(
+    baha = ba * sph
+  ) %>%
   summarise(
     sph = sum(sph, na.rm = TRUE),
     sphBH = sum(sphBH, na.rm = TRUE),
     sphD15 = sum(sphD15, na.rm = TRUE),
     sphD91 = sum(sphD91, na.rm = TRUE),
-    ba = sum(ba, na.rm = TRUE),
+    ba = sum(baha, na.rm = TRUE),
     vol_0000 = sum(vol_0000, na.rm = TRUE),
     vol_1307 = sum(vol_1307, na.rm = TRUE),
     vol_1510 = sum(vol_1510, na.rm = TRUE),
