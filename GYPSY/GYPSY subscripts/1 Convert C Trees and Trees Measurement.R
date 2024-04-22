@@ -16,6 +16,7 @@ trees_report$error[!(id_list%in%unique(trees_measurement$id))] <- "No measuremen
 trees_report <- na.omit(trees_report)
 if(nrow(trees_report>0)){View(trees_report)} # Show report if errors are found
 
+################################################################################
 # Merge and filter duplicate columns
 trees_merge <- inner_join(trees,trees_measurement[,!(c("company","company_plot_number","tree_number"))],by="id")
 rm(list=c("trees","trees_measurement"));gc()

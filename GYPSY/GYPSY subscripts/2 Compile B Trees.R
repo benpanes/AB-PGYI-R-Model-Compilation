@@ -10,8 +10,6 @@ trees <- trees[!(trees$tree_type%in%c("T","ET") & (trees$tree_plot_area==0 | is.
                !(trees$tree_type%in%c(paste0("R",1:10)) & (trees$regen_plot_area==0 | is.na(trees$regen_plot_area))),]
 
 trees$index_1 <- paste(trees$company, trees$company_plot_number, trees$measurement_number, trees$tree_number, sep = "_")
-trees_chk <- read.csv("H:/Shared drives/Growth & Yield Lab/Data Sets/PGYI/2023-09-08 PGYI Compiled/2_interim/trees2_chk.csv") 
-trees_list_chk <- read.csv("H:/Shared drives/Growth & Yield Lab/Data Sets/PGYI/2023-09-08 PGYI Compiled/2_interim/tree_list1.csv") 
  
 trees$ba <- ((trees$dbh/200)^2)*3.14159
 
