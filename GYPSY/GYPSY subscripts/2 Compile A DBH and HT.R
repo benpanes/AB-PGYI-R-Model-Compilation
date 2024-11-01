@@ -1,5 +1,5 @@
 ## Dead trees are deleted
-## If trees have DBH and height < 1.3m, height is estimate
+## If trees have DBH and height < 1.3m, height is estimated
 ## If trees have a missing DBH and height < 1.3m, sent to regen tally table
 #/**********************************************************/
 # Append measurement info to trees data and make adjustments
@@ -22,7 +22,7 @@ trees[height>0 & height<1.3 & !is.na(dbh),"height"] <- NA # Need to add some cod
 trees[dbh==0,"dbh"] <- NA
 trees[height==0,"height"] <- NA
 
-trees <- left_join(trees[,!"species"],fread("GYPSY data/lookup/species.csv"),by="species_og") # Joines species and species group from a lookup table
+trees <- left_join(trees[,!"species"],fread("GYPSY data/lookup/species.csv"),by="species_og") # Joins species and species group from a lookup table
 
 trees[is.na(species),"species"] <- trees[is.na(trees$species),"species_og"] # Use original species if no replacement
 trees$dbh_stat <- "XX"
@@ -31,7 +31,7 @@ trees[!is.na(dbh),"dbh_stat"] <- "MM"
 trees[height<1.3 & !is.na(height),"dbh_stat"] <- "NA"
 trees[!is.na(height), "ht_stat"] <- "MM"
 trees <- trees[!(species%in%c("NO","MS")),]
-#trees <- trees[!(tree_type=="B" & is.na(height)),] # excludes age trees without heights
+#trees <- trees[!(tree_type=="B" & is.na(height)),] # Excludes age trees without heights
 trees <- trees[!(!is.na(height) & height<0.3),]
 
 #trees <- trees[!(species%in%c("AW","BW","PB") & (!is.na(height) & height<1.3)),] # Excludes deciduous under 1.3m
@@ -74,13 +74,9 @@ rate <- trees[i,] %>%
 trees <- left_join(trees,rate,by=c("company","company_plot_number","measurement_number","species"))
 temp <- trees[!is.na(rate) & !is.na(dbh_p),]
 
-# These aren't in the original compilation, but some of the predicted values are alarming (e.g. >40,000)
-#i <- max(trees$dbh,na.rm=T) # Max predictable DBH, shouldn't be larger than already measured range
-#j <- min(trees$dbh,na.rm=T) # Min predictable DBH
-
-k <- temp$dbh_stat=="XX" & temp$height>1.3 #& (temp$dbh_p*temp$rate)<i & (temp$dbh_p*temp$rate)>j
+k <- temp$dbh_stat=="XX" & temp$height>1.3
 temp$dbh_PA[k] <- temp$dbh_p[k] * temp$rate[k]
-i <- temp$dbh_stat=="XX" & (is.na(temp$rate) | (!is.na(temp$rate) & is.na(temp$dbh_PA))) & temp$height>1.3 & !is.na(temp$height) & !is.na(temp$dbh_p) #& temp$dbh_p<i & temp$dbh_p>j
+i <- temp$dbh_stat=="XX" & (is.na(temp$rate) | (!is.na(temp$rate) & is.na(temp$dbh_PA))) & temp$height>1.3 & !is.na(temp$height) & !is.na(temp$dbh_p)
 if(sum(i)>0){
   temp$dbh_PU[i] <- temp$dbh_p[i]
 }else{
@@ -117,7 +113,7 @@ dbh_check <- function(df,i){
     }
     if("MM"%in%p_meas[,dbh_stat]){
       dat$lm_yr[k] <- max(p_meas[dbh_stat=="MM",measurement_year])
-      dat$l_dbh[k] <- p_meas[measurement_year==max(measurement_year[dbh_stat=="MM"]),dbh] # This formatting is a workaround for what seems to be a bug
+      dat$l_dbh[k] <- p_meas[measurement_year==max(measurement_year[dbh_stat=="MM"]),dbh]
     } 
     if("MM"%in%f_meas[,dbh_stat]){
       nm_yr <- min(f_meas[dbh_stat=="MM",measurement_year])
