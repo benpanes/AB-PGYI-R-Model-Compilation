@@ -9,6 +9,11 @@ start_time <- Sys.time()
 trees_merge <- fread("GYPSY data/intermediate/i_trees_merge.csv")
 plot_measurement <- fread("GYPSY data/intermediate/i_plot_measurement.csv")
 trees <- left_join(trees_merge,plot_measurement,by=c("company","company_plot_number","measurement_number"))
+plot <- fread("GYPSY data/intermediate/i_plot.csv")[,.(company,company_plot_number,natural_subregion)]
+plot <- left_join(plot,
+                  fread("GYPSY data/lookup/natsub.csv"),
+                  by="natural_subregion")
+trees <- left_join(trees,plot,by=c("company","company_plot_number"))
 rm(trees_merge,plot_measurement)
 
 trees$species_og <- toupper(trees$species)
@@ -16,13 +21,15 @@ trees$dbh_og <- trees$dbh
 trees$height_og <- trees$height
 trees$unique <- paste(trees$company,trees$company_plot_number,trees$tree_number,trees$measurement_number,sep="_")
 
-trees[height>0 & height<1.3 & !is.na(dbh),"height"] <- NA # Need to add some code that sends these to regen instead
+trees[height<1.3 & !is.na(dbh),"height"] <- NA # Predict new height where DBH is measured but height is less than 1.3
 
 # Fix suspected 0 filling
 trees[dbh==0,"dbh"] <- NA
 trees[height==0,"height"] <- NA
 
-trees <- left_join(trees[,!"species"],fread("GYPSY data/lookup/species.csv"),by="species_og") # Joins species and species group from a lookup table
+trees <- left_join(trees[,!"species"],
+                   fread("GYPSY data/lookup/species.csv"),
+                   by="species_og") # Joins species and species group from a lookup table
 
 trees[is.na(species),"species"] <- trees[is.na(trees$species),"species_og"] # Use original species if no replacement
 trees$dbh_stat <- "XX"
@@ -59,32 +66,28 @@ trees <- trees[,!c("measurement_month","measurement_day","stand_type",
 #'NA' (not applicable under 1.3 m), 
 #'IM' (inferred using DBH from minimum tagging limit)
 # IA should only be assigned in cases where stem was only measured once, and either both height and DBH was missing, or stem was under 1.3 m tall and height was missing
-temp <- left_join(trees,fread("GYPSY data/lookup/ht_to_dbh.csv"),by="species")
-temp[,"dbh_p"] <- temp[,b1*(height-1.3)^b2*exp(-b3*(height-1.3))]
-trees[height>1.3 & !is.na(height),"dbh_p"] <- temp[height>1.3 & !is.na(height),"dbh_p"]
+temp <- left_join(trees,
+                  fread("GYPSY data/lookup/ht_to_dbh_2016r1.csv"),
+                  by=c("species","natsub"))
+temp[,dbh_p:=b1*(height-1.3)^b2*exp(-b3*(height-1.3))]
+trees[height>1.3, "dbh_p"] <- temp[height>1.3, "dbh_p"]
 rm(temp);gc()
 
-i <- !is.na(trees$dbh) & !is.na(trees$dbh_p) & !trees$condition_code1%in%c(5,10) & trees$severity1!=3
-trees$rate0[i] <- trees$dbh[i]/trees$dbh_p[i]
-rate <- trees[i,] %>%
+trees[!is.na(dbh) & !is.na(dbh_p) & condition_code1!=3 & !(condition_code1%in%c(5,10) & severity1==3), 
+      rate0:=dbh/dbh_p]
+
+rate <- trees[!is.na(rate0)] %>%
         group_by(company,company_plot_number,measurement_number,species) %>%
-        summarize(rate=mean(rate0,na.rm=T))
+        summarize(rate=mean(rate0))
 
 ## Append revised dbhs to dataset and add category for tracking type of DBH
-trees <- left_join(trees,rate,by=c("company","company_plot_number","measurement_number","species"))
-temp <- trees[!is.na(rate) & !is.na(dbh_p),]
+temp <- left_join(trees,rate,by=c("company","company_plot_number","measurement_number","species"))[!is.na(dbh_p) & dbh_stat=="XX" & height>1.3]
 
-k <- temp$dbh_stat=="XX" & temp$height>1.3
-temp$dbh_PA[k] <- temp$dbh_p[k] * temp$rate[k]
-i <- temp$dbh_stat=="XX" & (is.na(temp$rate) | (!is.na(temp$rate) & is.na(temp$dbh_PA))) & temp$height>1.3 & !is.na(temp$height) & !is.na(temp$dbh_p)
-if(sum(i)>0){
-  temp$dbh_PU[i] <- temp$dbh_p[i]
-}else{
-  temp$dbh_PU <- NA
-}
-trees <- left_join(trees, temp[,c("unique","dbh_PA","dbh_PU")],by="unique")
-rm(temp,rate,k)
-trees <- trees[,!c("dbh_p","rate","rate0")];gc()
+temp[!is.na(rate), dbh_PA:=dbh_p * rate]
+temp[is.na(rate), dbh_PU:=dbh_p]
+
+trees <- left_join(trees[,!c("dbh_p","rate0")], temp[,c("unique","dbh_PA","dbh_PU")],by="unique")
+rm(temp,rate);gc()
 
 ## Try to fill in missing DBHs based on one of: previous DBH, subsequent DBH, or previous + growth rate (if available)
 trees$tree_id <- paste(trees$company,trees$company_plot_number,trees$tree_number,sep="_")
@@ -247,34 +250,25 @@ table(trees[,c("tree_type","dbh_stat")])
 #'IA' (inferred average by species / tree_type) 
 #'IM' (inferred from minimum tagging limit)
 # IA and IM should only be assigned in cases where stem was under 1.3 m tall and height was missing
-plot <- fread("GYPSY data/intermediate/i_plot.csv")
-plot <- distinct(plot)
-trees <- left_join(trees,plot,by=c("company","company_plot_number"))
-rm(plot);gc()
-temp <- left_join(trees,fread("GYPSY data/lookup/dbh_to_ht.csv"),by=c("natural_subregion","species"))
+temp <- left_join(trees,fread("GYPSY data/lookup/dbh_to_ht_2016r4.csv"),by=c("natsub","species"))
 
 # Predict heights for all trees including ones that already have a height
-temp[,"ht_PU"] <- temp[,1.3+b1*(1-exp(-1*b2*dbh))^b3]
-i <- temp$model==1
-trees$ht_PU[i] <- temp$ht_PU[i]
-
-temp[,"ht_PU"] <- temp[,1.3+(b1/(1+exp(b2+b3*log(dbh))))]
-i <- temp$model==2
-trees$ht_PU[i] <- temp$ht_PU[i]
+temp[,ht_PU:=ifelse(model==1,1.3+b1*(1-exp(-1*b2*dbh))^b3,1.3+(b1/(1+exp(b2+b3*log(dbh+0.01)))))]
+trees$ht_PU <- temp$ht_PU
 
 ## Calculate ratio of means to create adjustment factor for height
 # Don't want trees with missing actual heights to be used in averaging
 # Also don't want trees with unusual (i.e. data issues) height-DBH relationships to affect ratios
-temp <- trees[!is.na(trees$height) & !is.na(trees$dbh) & 0<trees$dbh,]
-temp$hdr <- temp$height/temp$dbh
-temp <- temp[!(temp$height>5 & temp$hdr>3) & 
-             !(temp$height>5 & temp$hdr<0.3) & 
-             !((temp$height<=5 & temp$height>=2) & temp$hdr>5) &
-             !((temp$height<=5 & temp$height>=2) & temp$hdr<0.3) &
-             !(temp$height<2 & temp$hdr>15) &
-             !(temp$height<2 & temp$hdr<0.3) &
-             !(temp$condition_code1%in%c(1:3,13:15)) & # Dead, broken or dead top, etc.
-             !(temp$condition_code1==10 & temp$severity1==3),] # Severe lean
+temp <- trees[!is.na(height) & !is.na(dbh)]
+temp[,hdr:= height/dbh]
+temp <- temp[!(height>5 & hdr>3) & 
+             !(height>5 & hdr<0.3) & 
+             !((height<=5 & height>=2) & hdr>5) &
+             !((height<=5 & height>=2) & hdr<0.3) &
+             !(height<2 & hdr>15) &
+             !(height<2 & hdr<0.3) &
+             !(condition_code1%in%c(1:3,13:15)) & # Dead, broken or dead top, etc.
+             !(condition_code1==10 & severity1==3),] # Severe lean
 
 
 # Attempt 1 - ratio by species, plot and measurement
@@ -283,13 +277,10 @@ height_ratio <- temp %>%
   summarize(freq=sum(!is.na(height)&!is.na(ht_PU)),
             height_r=mean(height,na.rm=T),
             ht_PU=mean(ht_PU,na.rm=T)) %>%
-  mutate(
-    ratio=height_r/ht_PU
-  )
+  mutate(ratio=height_r/ht_PU,.keep="unused")
 
 trees <- left_join(trees,height_ratio,by=c("company","company_plot_number","measurement_number","species"))
-i <- trees$freq>3 & !is.na(trees$freq) & trees$ht_stat=="XX"
-trees$ht_PA1[i] <- trees$ht_PU.x[i]*trees$ratio[i]
+trees[freq>3 & ht_stat=="XX", ht_PA1:= ht_PU*ratio]
 trees <- trees[,!c("ratio","freq")]
 
 # Attempt 2 - ratio by species and plot only (to fill in missing after attempt #1)
