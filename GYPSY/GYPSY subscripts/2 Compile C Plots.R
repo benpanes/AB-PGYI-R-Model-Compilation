@@ -56,7 +56,7 @@ regendensity_0 <- merge(totalregen, plot_mm, by = c("company", "company_plot_num
 # Calculate sphRegen
 regendensity <- regendensity_0 %>%
   mutate(
-    SphRegen = totalregencount * 10000 / (regen_plot_area * number_regen_plots),
+    sphRegen = totalregencount * 10000 / (regen_plot_area * number_regen_plots),
     spp_grp = case_when(
       species %in% c("AW", "PB", "BW", "AX") ~ "AW",
       species %in% c("PL", "PJ", "PW", "PF", "PX", "PA", "LT", "LA", "LW") ~ "PL",
@@ -70,25 +70,25 @@ regendensity <- regendensity_0 %>%
       TRUE ~ NA_character_
     )
   ) %>%
-  select(company, company_plot_number, measurement_number, species, spp_grp, condec, SphRegen) %>%
+  select(company, company_plot_number, measurement_number, species, spp_grp, condec, sphRegen) %>%
   distinct() 
 
 # In compilation code, 3 df are created for sppgrp, condec, and sph
-# Calculate SphRegen for each spp_grp
+# Calculate sphRegen for each spp_grp
 sppgrpregden <- regendensity %>%
   arrange(company, company_plot_number, measurement_number, spp_grp) %>%
   group_by(company, company_plot_number, measurement_number, spp_grp) %>%
-  summarise(SphRegen = sum(SphRegen), .groups = "drop")
+  summarise(sphRegen = sum(sphRegen), .groups = "drop")
 
 # Calculate SphRegen for each condec
 condecregden <- regendensity %>%
   group_by(company, company_plot_number, measurement_number, condec) %>%
-  summarise(SphRegen = sum(SphRegen), .groups = "drop")
+  summarise(sphRegen = sum(sphRegen), .groups = "drop")
 
 # Calculate total SphRegen
 totregden <- regendensity %>%
   group_by(company, company_plot_number, measurement_number) %>%
-  summarise(SphRegen = sum(SphRegen), .groups = "drop")
+  summarise(sphRegen = sum(sphRegen), .groups = "drop")
 
 ################################################################################
 # Sort sasin.tree_list1 data
@@ -114,25 +114,21 @@ plot <- treelist  %>%
 plot2 <- plot %>%
   arrange(company, company_plot_number, measurement_number, species) %>%
   group_by(company, company_plot_number, measurement_number, species) %>%
-  mutate(
-    scale = "species",
-    baha = ba * sph
-  ) %>%
   summarise(
+    scale = "species",
     sph = sum(sph, na.rm = TRUE),
     sphBH = sum(sphBH, na.rm = TRUE),
     sphD15 = sum(sphD15, na.rm = TRUE),
     sphD91 = sum(sphD91, na.rm = TRUE),
     ba = sum(baha, na.rm = TRUE),
-    vol_0000 = sum(vol_0000, na.rm = TRUE),
-    vol_1307 = sum(vol_1307, na.rm = TRUE),
-    vol_1510 = sum(vol_1510, na.rm = TRUE),
-    biomass = sum(biomass, na.rm = TRUE),
-    carbon = sum(carbon, na.rm = TRUE)
+    vol_0000 = sum(vol_0000ha, na.rm = TRUE),
+    vol_1307 = sum(vol_1307ha, na.rm = TRUE),
+    vol_1510 = sum(vol_1510ha, na.rm = TRUE),
+    biomass = sum(biomassha, na.rm = TRUE),
+    carbon = sum(carbonha, na.rm = TRUE)
   )
 
 # Merge regendensity and plot2
-plot2$scale <- "species"
 plot2a <- plot2 %>%
   left_join(regendensity, by = c("company", "company_plot_number", "measurement_number", "species"))
 ################################################################################
@@ -140,25 +136,24 @@ plot2a <- plot2 %>%
 plot3 <- plot %>%
   arrange(company, company_plot_number, measurement_number, spp_grp) %>%
   group_by(company, company_plot_number, measurement_number, spp_grp) %>%
-  mutate(
-    baha = ba * sph
-  ) %>%
   summarise(
     sph = sum(sph, na.rm = TRUE),
     sphBH = sum(sphBH, na.rm = TRUE),
     sphD15 = sum(sphD15, na.rm = TRUE),
     sphD91 = sum(sphD91, na.rm = TRUE),
     ba = sum(baha, na.rm = TRUE),
-    vol_0000 = sum(vol_0000, na.rm = TRUE),
-    vol_1307 = sum(vol_1307, na.rm = TRUE),
-    vol_1510 = sum(vol_1510, na.rm = TRUE),
-    biomass = sum(biomass, na.rm = TRUE),
-    carbon = sum(carbon, na.rm = TRUE),
+    vol_0000 = sum(vol_0000ha, na.rm = TRUE),
+    vol_1307 = sum(vol_1307ha, na.rm = TRUE),
+    vol_1510 = sum(vol_1510ha, na.rm = TRUE),
+    biomass = sum(biomassha, na.rm = TRUE),
+    carbon = sum(carbonha, na.rm = TRUE),
     .groups = "drop"
-  )
+  ) %>%
+  mutate(
+    scale = "spp_grp",
+    species = spp_grp
+    )
 
-plot3$scale <- 'spp_grp'
-plot3$species <- plot3$spp_grp
 plot3a <- plot3 %>%
   left_join(sppgrpregden, by = c("company", "company_plot_number", "measurement_number", "spp_grp"))
 ################################################################################
@@ -166,24 +161,19 @@ plot3a <- plot3 %>%
 plot4 <- plot %>%
   arrange(company, company_plot_number, measurement_number, condec) %>%
   group_by(company, company_plot_number, measurement_number, condec) %>%
-  mutate(
-    baha = ba * sph
-  ) %>%
   summarise(
     sph = sum(sph, na.rm = TRUE),
     sphBH = sum(sphBH, na.rm = TRUE),
     sphD15 = sum(sphD15, na.rm = TRUE),
     sphD91 = sum(sphD91, na.rm = TRUE),
-    ba = sum(baha, na.rm = TRUE),
-    vol_0000 = sum(vol_0000, na.rm = TRUE),
-    vol_1307 = sum(vol_1307, na.rm = TRUE),
-    vol_1510 = sum(vol_1510, na.rm = TRUE),
-    biomass = sum(biomass, na.rm = TRUE),
-    carbon = sum(carbon, na.rm = TRUE),
+    baha = sum(baha, na.rm = TRUE),
+    vol_0000 = sum(vol_0000ha, na.rm = TRUE),
+    vol_1307 = sum(vol_1307ha, na.rm = TRUE),
+    vol_1510 = sum(vol_1510ha, na.rm = TRUE),
+    biomass = sum(biomassha, na.rm = TRUE),
+    carbon = sum(carbonha, na.rm = TRUE),
     .groups = "drop"
-  )
-
-plot4 <- plot4 %>%
+  ) %>%
   mutate(
     scale = "con_dec",
     species = if_else(condec == "DEC", "DE", "CO")
@@ -196,46 +186,36 @@ plot4a <- plot4 %>%
 plot5 <- plot %>%
   arrange(company, company_plot_number, measurement_number, condec) %>%
   group_by(company, company_plot_number, measurement_number) %>%
-  mutate(
-    baha = ba * sph
-  ) %>%
   summarise(
     sph = sum(sph, na.rm = TRUE),
     sphBH = sum(sphBH, na.rm = TRUE),
     sphD15 = sum(sphD15, na.rm = TRUE),
     sphD91 = sum(sphD91, na.rm = TRUE),
     ba = sum(baha, na.rm = TRUE),
-    vol_0000 = sum(vol_0000, na.rm = TRUE),
-    vol_1307 = sum(vol_1307, na.rm = TRUE),
-    vol_1510 = sum(vol_1510, na.rm = TRUE),
-    biomass = sum(biomass, na.rm = TRUE),
-    carbon = sum(carbon, na.rm = TRUE),
+    vol_0000 = sum(vol_0000ha, na.rm = TRUE),
+    vol_1307 = sum(vol_1307ha, na.rm = TRUE),
+    vol_1510 = sum(vol_1510ha, na.rm = TRUE),
+    biomass = sum(biomassha, na.rm = TRUE),
+    carbon = sum(carbonha, na.rm = TRUE),
     .groups = "drop"
+  ) %>%
+  mutate(
+    scale = "con_dec",
+    species = "TO"
   )
-
-# Add species and scale columns
-plot5$species <- 'TO'
-plot5$scale <- 'con_dec'
 
 plot5a <- plot5 %>%
   left_join(totregden, by = c("company", "company_plot_number", "measurement_number"))
 ################################################################################
-# combine
+# Combine and sort 2a through 5a
 
-plot2b <- bind_rows(plot2a, plot3a)
-plot2b <- plot2b %>%
-  arrange(company, company_plot_number, measurement_number, scale, species)
-
-plot2c <- bind_rows(plot2b, plot4a)
-plot2c <- plot2c %>%
-  arrange(company, company_plot_number, measurement_number, scale, species)
-
-plot2d <- bind_rows(plot2c, plot5a)
-plot2d <- plot2d %>%
+plot2b <- bind_rows(plot2a, plot3a) %>%
+  bind_rows(plot4a) %>%
+  bind_rows(plot5a) %>%
   arrange(company, company_plot_number, measurement_number, scale, species)
 
 ##############################################################################
-# Sort plot2a data
+# Create mmt dataframe
 cols_to_drop <- c("company_stand_number", "establishment_month", "establishment_day", "measurement_day", 
                   "contractor", "cruiser_1_name", "cruiser_2_name", "plot_comment", "plot_measurement_comment", 
                   "avi_field_call", "shrub_cover", "herb_forb_cover", "grass_cover", "moss_lichen_cover",
@@ -251,28 +231,24 @@ mmt <- plot_mm %>%
 
 ################################################################################
 # Create mmt2 dataframe
-mmt2 <- plot2d %>%
+mmt2 <- plot2b %>%
   select(
     company, company_plot_number, measurement_number,species, scale
   ) %>%
-  left_join(mmt, by = c("company", "company_plot_number", "measurement_number")) 
-
-
-# Merge mmt2 and plot3 dataframes
-plot44 <- merge(mmt2, plot2d, by = c("company", "company_plot_number", "measurement_number", "scale", "species"))
+  left_join(mmt, by = c("company", "company_plot_number", "measurement_number")) %>%
+  merge(plot2b %>% 
+          select(company, company_plot_number, measurement_number, scale, species, sph, sphBH, sphD15, sphD91, sphRegen, ba, vol_0000, vol_1307, vol_1510, biomass, carbon), 
+        by = c("company", "company_plot_number", "measurement_number", "scale", "species"))
 
 ################################################################################
-plot6 <- plot44 %>%
-  mutate(regendone = ifelse(!is.na(SphRegen), 1, 0)) %>%
+plot6 <- mmt2 %>%
+  mutate(regendone = ifelse(!is.na(sphRegen), 1, 0)) %>%
   filter(species == "TO") %>%
   select(company, company_plot_number, measurement_number, regendone)
 
-plot_level1 <- plot44 %>%
-  left_join(plot6, by = c("company", "company_plot_number", "measurement_number"))
-
-# Replace missing values with 0 
-plot_level1 <- plot_level1 %>%
-  mutate(
+plot_level1 <- mmt2 %>%
+  left_join(plot6, by = c("company", "company_plot_number", "measurement_number"))  %>%
+  mutate( # replace missing values with 0
     sph = ifelse(is.na(sph), 0, sph),
     sphBH = ifelse(is.na(sphBH), 0, sphBH),
     sphD15 = ifelse(is.na(sphD15), 0, sphD15),
@@ -283,7 +259,7 @@ plot_level1 <- plot_level1 %>%
     vol_1510 = ifelse(is.na(vol_1510), 0, vol_1510),
     biomass = ifelse(is.na(biomass), 0, biomass),
     carbon = ifelse(is.na(carbon), 0, carbon),
-    SphRegen = ifelse(regendone == 1 & is.na(SphRegen), 0, SphRegen)
+    sphRegen = ifelse(regendone == 1 & is.na(sphRegen), 0, sphRegen)
   )
 
 # Remove rows where species is "NO" or blank
@@ -296,7 +272,7 @@ plot_level1 <- plot_level1 %>%
     measurement_year,	measurement_month,	stand_origin,	plot_type,	stand_type,	tree_plot_area,	tree_tagging_limit,	
     sapling_plot_area,	sapling_tagging_limit_dbh,	sapling_tagging_limit_height,	number_sapling_plots,	regen_plot_area,	
     regen_tagging_limit_conifer,	regen_tagging_limit_decid,	number_regen_plots,	scale,	species,	sph,	sphBH,	sphD15,	
-    sphD91,	ba,	vol_0000,	vol_1307,	vol_1510,	biomass,	carbon,	SphRegen,	regendone
+    sphD91,	ba,	vol_0000,	vol_1307,	vol_1510,	biomass,	carbon,	sphRegen,	regendone
   )
 
 

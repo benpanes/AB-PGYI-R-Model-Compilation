@@ -41,12 +41,12 @@ trees <- trees %>%
     species_og == "SB" ~ "SB"
   ))
 
-trees.tap <- left_join(trees,fread("GYPSY data/lookup/natsub.csv"),by="natural_subregion")
+#trees.tap <- left_join(trees,fread("GYPSY data/lookup/natsub.csv"),by="natural_subregion")
 
 # changed species to species_og for testing purpose
-trees.tap$natsub[trees$species%in%c("BW","FD","LT","PJ","SE")] <- 0
+trees$natsub[trees$species%in%c("BW","FD","LT","PJ","SE")] <- 0
 
-trees.tap <- left_join(trees.tap,fread("GYPSY data/lookup/taper.csv"),by=c("species","natsub"))
+trees.tap <- left_join(trees,fread("GYPSY data/lookup/taper.csv"),by=c("species","natsub"))
 trees.tap <- trees.tap[,.(company,company_plot_number,tree_number,measurement_number,unique,height,dbh,b1,b2,b3,b4,b5,a0,a1,a2,k7,k8)];gc()
 
 ## Size parameters
@@ -214,7 +214,7 @@ trees.vol[is.na(vol_0000),"vol_0000"] <- 0
 
 trees.bio <- trees.vol %>%
   mutate(
-    biomass_tree = if_else(dbh < 15 | vol_1307 == 0,
+    biomass = if_else(dbh < 15 | vol_1307 == 0,
                       case_when(
                         species == 'AW' ~ 0.26738 + 0.01917 * dbh * dbh * height,
                         species == 'BW' ~ 2.47035 + 0.02454 * dbh * dbh * height,
@@ -241,11 +241,7 @@ trees.bio <- trees.vol %>%
                         TRUE ~ NA_real_
                       )
     ),
-    biomass = biomass_tree * sph,
     carbon = biomass * 0.5,
-    vol_1307 = vol_1307 * sph,
-    vol_1510 = vol_1510 * sph,
-    vol_0000 = vol_0000 * sph
   )
 
 treelist <- trees.bio %>%

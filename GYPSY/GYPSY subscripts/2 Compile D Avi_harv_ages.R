@@ -173,10 +173,11 @@ harv <- treatment %>%
 
 harv2 <- harv %>%
   mutate(harv_orig = treatment_year) %>%
-  select(company, company_plot_number, harv_orig)
+  select(company, company_plot_number, harv_orig) %>%
+  arrange(company, company_plot_number, -harv_orig) %>%
+  distinct(company, company_plot_number, .keep_all = T)
 
 mmt3 <- arrange(mmt3, company, company_plot_number)
-harv2 <- arrange(harv2, company, company_plot_number)
 
 # Merge mmt3 and harv2 data frames
 harv3 <- mmt3 %>%
