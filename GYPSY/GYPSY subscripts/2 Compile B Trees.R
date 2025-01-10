@@ -41,8 +41,6 @@ trees <- trees %>%
     species_og == "SB" ~ "SB"
   ))
 
-#trees.tap <- left_join(trees,fread("GYPSY data/lookup/natsub.csv"),by="natural_subregion")
-
 # changed species to species_og for testing purpose
 trees$natsub[trees$species%in%c("BW","FD","LT","PJ","SE")] <- 0
 
