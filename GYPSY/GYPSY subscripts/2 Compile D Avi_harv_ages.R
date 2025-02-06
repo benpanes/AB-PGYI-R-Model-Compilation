@@ -175,8 +175,8 @@ harv2 <- harv %>%
   mutate(harv_orig = treatment_year) %>%
   select(company, company_plot_number, harv_orig) %>%
   arrange(company, company_plot_number, -harv_orig) %>%
-  distinct(company, company_plot_number, .keep_all = T)
-
+  distinct(company, company_plot_number, .keep_all = TRUE)
+  
 mmt3 <- arrange(mmt3, company, company_plot_number)
 
 # Merge mmt3 and harv2 data frames
@@ -185,27 +185,50 @@ harv3 <- mmt3 %>%
   distinct(company, company_plot_number, measurement_year, .keep_all = TRUE)
 
 # Calculate age_harv
-harv4 <- harv3 %>%
-  mutate(age_harv = measurement_year - harv_orig) %>%
+harv4 <- harv3[measurement_year >= harv_orig,age_harv:=measurement_year - harv_orig] %>% # Added filter to harvest age calculation to exclude measurements before harvest
   select(-harv_orig)
 
-###
-fire <- disturbance %>%
-  mutate(fire_orig = disturbance_year) %>%
-  filter(disturbance_code == "DF") %>%
-  select(company, company_plot_number, fire_orig)%>%
-  arrange(fire_orig, company, company_plot_number)
+# Calculate age based on planting year
+plant <- treatment[treatment_code=="P",.(company, company_plot_number, plant_orig=treatment_year)] %>%
+  unique  %>%
+  arrange(plant_orig)
+plant1 <- plant %>%
+  group_by(company,company_plot_number) %>%
+  slice_head(n=1) %>%
+  data.table
+plant2 <- plant %>%
+  filter(duplicated(paste(company,company_plot_number)))
 
-fireharv <- merge(harv4, fire, by = c("company", "company_plot_number"), all.x = TRUE)
+# Calculate age based on stand replacing fire
+fire <- disturbance[disturbance_code == "BU" & disturbance_severity == 5,.(company, company_plot_number, fire_orig=disturbance_year)] %>%  # Replace previous "DF"(Destroyed fire)
+  unique %>%
+  arrange(-fire_orig)
+fire1 <- fire %>%
+  group_by(company, company_plot_number) %>%
+  slice_head(n=1)
+fire2 <- fire %>%
+  filter(duplicated(paste(company,company_plot_number)))
 
-fireharv2 <- fireharv %>%
-  mutate(age_fire = measurement_year - fire_orig) %>%
-  select(-fire_orig)
+# Add plant age
+fireharv <- merge(harv4, plant1, by=c("company","company_plot_number"), all.x=T) # Attempt most recent plant age first
+fireharv[measurement_year>=plant_orig, age_plant:=measurement_year-plant_orig+1]
+fireharv[,plant_orig:=NULL]
+fireharv2 <- merge(fireharv, plant2, by=c("company","company_plot_number"), all.x=T)
+fireharv2[measurement_year>=plant_orig & is.na(age_plant), age_plant:=measurement_year-plant_orig+1]
+fireharv2[,plant_orig:=NULL]
 
-# Sort fireharv2 dataset
-fireharv2 <- arrange(fireharv2, company, company_plot_number, measurement_year)
+# Add fire age
+fireharv3 <- merge(fireharv2, fire1, by=c("company","company_plot_number"), all.x=T)
+fireharv3[measurement_year>=fire_orig, age_fire:=measurement_year-fire_orig]
+fireharv3[,fire_orig:=NULL]
+fireharv4 <- merge(fireharv3, fire2, by=c("company","company_plot_number"), all.x=T)
+fireharv4[measurement_year>=fire_orig & is.na(age_fire), age_fire:=measurement_year-fire_orig]
+fireharv4[,fire_orig:=NULL]
+
+# Sort fireharv4 dataset
+fireharv4 <- arrange(fireharv4, company, company_plot_number, measurement_year)
 
 # Merge sasin.plot_level1 and fireharv2 datasets
-plot_level2 <- merge(plot_level1, fireharv2, by = c("company", "company_plot_number", "measurement_year"))
+plot_level2 <- merge(plot_level1, fireharv4, by = c("company", "company_plot_number", "measurement_year"))
 
 fwrite(plot_level2, "GYPSY data/intermediate/i_plot_level2.csv")

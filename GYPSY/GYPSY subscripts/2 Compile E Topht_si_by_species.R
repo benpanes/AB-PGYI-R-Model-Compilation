@@ -14,9 +14,9 @@ treeage$dbh_age <- as.numeric(treeage$dbh_age)
 site1 <- treeage %>% 
   filter(!(tree_origin %in% c(9, 10))) %>%
   mutate(
-    totage = ifelse(!is.na(total_age), total_age, NA),
+    totage = ifelse(!is.na(total_age), total_age, NA), # Is this any different than a simple x = y?
     bhage =  ifelse(!is.na(dbh_age), dbh_age, NA)) %>%              
-    mutate(
+  mutate(
     totage = ifelse(!is.na(bhage) & totage %in% c(0, NA),
                                 case_when(
                                   spp_grp == 'AW' ~ dbh_age + 4,
@@ -30,9 +30,7 @@ site1 <- treeage %>%
                                  spp_grp == 'PL' & totage > 8 ~ totage - 8,
                                  spp_grp == 'SB' & totage > 15 ~ totage - 15,
                                  spp_grp == 'SW' & totage > 12 ~ totage - 12
-                               ), bhage)) 
-
-site1 <- site1%>%
+                               ), bhage)) %>%
   mutate(
     totage = ifelse(!(stump_age %in% c(0, NA)) & totage %in% c(0, NA) & bhage %in% c(0, NA),
                          case_when(
@@ -47,20 +45,21 @@ site1 <- site1%>%
                           spp_grp == 'PL' & totage > 8 ~ totage - 8,
                           spp_grp == 'SB' & totage > 15 ~ totage - 15,
                           spp_grp == 'SW' & totage > 12 ~ totage - 12
-                        ), bhage)
-  )%>% 
-  arrange(desc(measurement_number))
+                        ), bhage)) %>% 
+  group_by(company,company_plot_number) %>%
+  arrange(desc(measurement_number)) %>%
+  ungroup
 
 managed2 <- site1 %>% 
   group_by(unique) %>%
-  filter(row_number() == 1)%>%
+  slice_head(n=1) %>%
   filter(stand_origin != 'N') %>%
   arrange(company, company_plot_number)
 
-natural2 <- site1 %>% 
+natural2 <- site1 %>% #### Check if this is the same as the original compilation code. What's the point of splitting by management if they use the same sorting?
   group_by(unique) %>%
-  filter(row_number() == 1) %>%
-  filter(stand_origin == 'N')%>%
+  slice_head(n=1) %>%
+  filter(stand_origin == 'N') %>%
   arrange(company, company_plot_number)
 
 managed_natural <- bind_rows(managed2, natural2)
@@ -262,24 +261,16 @@ site3 <- site2 %>%
   summarise(si_bh = mean(si_bh, na.rm = TRUE)) %>%
   mutate(scale = 'species', si_n = n()) 
 
-plot_level2 <- plot_level2 %>% 
-  arrange(company, company_plot_number, scale, species)
-
-site4 <- site3 %>% 
-  arrange(company, company_plot_number, scale, species)
- 
 plot_level2 <- plot_level2 %>%
   arrange(company, company_plot_number, scale, species)
 
-site5 <- left_join(plot_level2, site3, by = c("company", "company_plot_number", "scale", "species")) 
+site5 <- left_join(plot_level2, site3, by = c("company", "company_plot_number", "scale", "species"))
 
 ################################################################################
 #  STEP 3. calculate top height for each plot/measurement/species group
 ################################################################################
 
-trees <- left_join(tree_list1, plot_mmt, by = c("company", "company_plot_number", "measurement_number"))
-
-trees <- trees %>%
+trees <- left_join(tree_list1, plot_mmt, by = c("company", "company_plot_number", "measurement_number")) %>%
   filter(!(tree_origin %in% c(9, 10)), height >= 1.3) 
 
 ###################
@@ -323,7 +314,7 @@ trees2a <- trees %>%
            ht_stat %in% c('MM', 'PA', 'Pa', 'IX')) %>%
   mutate(target = ifelse(round(tree_plot_area / 100, 0) == 1, 2, round(tree_plot_area / 100, 0)),
          unique2 = paste(company, company_plot_number, measurement_number, species, sep = "_")) %>%
-  select(unique2, company, company_plot_number, measurement_number, tree_number, species, dbh, height, condition_code1, severity1, condition_code2, severity2, target) 
+  select(unique2, company, company_plot_number, measurement_number, tree_number, species, dbh, height, condition_code1, severity1, condition_code2, severity2, target)
 
 tha <- trees2a %>%
   group_by(unique2) %>%
@@ -522,39 +513,51 @@ site6 <- site5 %>%
 # check to make sure that everything with a measurement has a topheight;
 check <- site6 %>%
   filter(
-    scale == 'species' & sph > 0 & (is.na(topht) | topht == 0),
-    scale == 'species' & sph == 0 & topht > 0
-  )
-
+    (scale == 'species' & sph > 0 & (is.na(topht) | topht == 0)) |
+    (scale == 'species' & sph == 0 & topht > 0)
+  ) %>%
+  select(company,company_plot_number,measurement_number,species,sph,topht) %>%
+  arrange(company,company_plot_number,measurement_number)
 
 ################################################################################
 #  STEP 4. calculate average age by species as well as maximum age;
 ################################################################################
+topht1 <- site6 %>%
+  filter(scale=="species") %>%
+  select(company, company_plot_number, measurement_number, species, topht) %>%
+  unique
 
 age1 <- managed_natural %>%
   mutate(
     birth_yr_tot = if_else(totage > 0, measurement_year - totage, NA_real_),
     birth_yr_bh = if_else(bhage > 0, measurement_year - bhage, NA_real_)
-  )
+  ) %>%
+  left_join(topht1, by=c("company", "company_plot_number", "measurement_number", "species")) %>%
+  filter(height>topht-6 | is.na(topht)) %>% # Exclude trees shorter than top height - 6 m from age calculations
+  select(-topht)
 
 age3 <- age1 %>%
-  group_by(company, company_plot_number, species) %>%
+  group_by(company, company_plot_number, measurement_number, species) %>%
   summarise(
     birth_yr_tot = mean(birth_yr_tot, na.rm = TRUE),
     birth_yr_bh = mean(birth_yr_bh, na.rm = TRUE),
     FREQ.x = n() ) %>%
   mutate(scale = 'species') %>%
-  filter(
-    !(species %in% c(50))
-  )
+  ungroup %>%
+  group_by(company, company_plot_number, species) %>% # Select earliest measurement instead of averaging across all
+  arrange(measurement_number) %>%
+  slice_head(n=1) %>%
+  select(-measurement_number) %>%
+  ungroup
 
 site7 <- site6 %>%
-  left_join(age3, by = c("company", "company_plot_number", "scale", "species"))%>%
-  arrange(company, company_plot_number, measurement_number, scale, species)
+  left_join(age3, by = c("company", "company_plot_number", "scale", "species")) %>%
+  arrange(company, company_plot_number, measurement_number, scale, species) %>%
+  data.table
 
 site8 <- site7 %>%
-  mutate(age_tot = measurement_year - birth_yr_tot,
-         age_bh = measurement_year - birth_yr_bh) %>%
+  mutate(age_tot = ifelse(measurement_year > birth_yr_tot, measurement_year - birth_yr_tot, NA),
+         age_bh = ifelse(measurement_year > birth_yr_bh, measurement_year - birth_yr_bh, NA)) %>%
   mutate(age_n = ifelse(is.na(age_tot), NA, age_tot)) %>%
   select(-birth_yr_tot, -birth_yr_bh)%>%
   arrange(company, company_plot_number, measurement_number, scale, species)
@@ -571,10 +574,14 @@ site10 <- site9 %>%
   select(company, company_plot_number, measurement_number, age_max)
 
 site11 <- left_join(site8, site10, by = c("company", "company_plot_number", "measurement_number"))
-
-site11$standage <- ifelse(!is.na(site11$age_max), site11$age_max,
-                          ifelse(!is.na(site11$age_harv), site11$age_harv,
-                                 ifelse(!is.na(site11$age_fire), site11$age_fire, NA)))
+site11[age_avi<0,age_avi:=NA]
+site11[,standage:=round( # Added planting and AVI age as options
+  fcase(!is.na(age_max),as.double(age_max),
+        !is.na(age_plant),as.double(age_plant),
+        !is.na(age_harv),as.double(age_harv),
+        !is.na(age_fire),as.double(age_fire),
+        !is.na(age_avi),as.double(age_avi),
+        default=NA))]
 
 pgyi_compiled <- site11 %>%
   mutate(
