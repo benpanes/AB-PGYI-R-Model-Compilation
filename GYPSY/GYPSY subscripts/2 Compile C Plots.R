@@ -48,7 +48,7 @@ allregencounts$regeneration_count[is.na(allregencounts$regeneration_count)] <- 0
 allregencounts$totalregen <- allregencounts$tagregcount + allregencounts$regeneration_count
 allregencounts <- allregencounts %>%
   group_by(company, company_plot_number, measurement_number, species) %>%
-  mutate(totalregencount = sum(totalregen))
+  summarize(totalregencount = sum(totalregen))
 
 totalregen <- allregencounts
 regendensity_0 <- merge(totalregen, plot_mm, by = c("company", "company_plot_number", "measurement_number"), all.x = TRUE)
@@ -93,10 +93,13 @@ totregden <- regendensity %>%
 ################################################################################
 # Sort sasin.tree_list1 data
 # Create plot at tree level
+treelist[tree_type=="T",Tsph:=first(sph),by=.(company,company_plot_number,measurement_number)]
+treelist[,Tsph:=first(sph),by=.(company,company_plot_number,measurement_number)]
+if(treelist[,any(is.na(sph))]){warning("Trees have missing expansion factors, substituting factor from tree plot")}
 plot <- treelist  %>%
   arrange(company, company_plot_number, measurement_number, species)%>%
   mutate(
-    sph = if_else(is.na(sph), first(sph, na.rm = TRUE), sph),
+    sph = if_else(is.na(sph), Tsph, sph),
     vol_0000ha = vol_0000 * sph,
     vol_1307ha = vol_1307 * sph,
     vol_1510ha = vol_1510 * sph,
