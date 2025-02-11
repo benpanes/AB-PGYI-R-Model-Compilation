@@ -99,7 +99,11 @@ if(treelist[,any(is.na(sph))]){warning("Trees have missing expansion factors, su
 plot <- treelist  %>%
   arrange(company, company_plot_number, measurement_number, species)%>%
   mutate(
+<<<<<<< HEAD
     sph = if_else(is.na(sph), Tsph, sph),
+=======
+    sph = if_else(is.na(sph), first(sph, na_rm = TRUE), sph),
+>>>>>>> 9219a9838391afbb7e4be77d08f4f4b1a7d50ad1
     vol_0000ha = vol_0000 * sph,
     vol_1307ha = vol_1307 * sph,
     vol_1510ha = vol_1510 * sph,
