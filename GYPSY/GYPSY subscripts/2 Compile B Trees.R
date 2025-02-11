@@ -16,7 +16,7 @@ trees[,ba:=((dbh/200)^2)*3.14159]
 
 trees[tree_type%in%c("T","ET"),sph:= 10000/tree_plot_area]
 
-trees[tree_type%in%c("S1","ES1"),sph:= 10000/sapling_plot_area]
+trees[tree_type%in%c("S1","ES1"),sph:= ifelse(sapling_plot_area==0,10000/tree_plot_area,10000/sapling_plot_area)] # Assume all saplings were measured if saplings present and sapling plot area = 0
 
 trees[tree_type%in%c(paste0("R",1:10)),sph:= 10000/(regen_plot_area*number_regen_plots)]
 
