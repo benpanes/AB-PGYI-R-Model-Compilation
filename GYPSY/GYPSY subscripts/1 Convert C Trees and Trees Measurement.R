@@ -7,6 +7,16 @@ trees_measurement <- fread(paste0(input.dir,"/trees_measurement.csv"), na.string
 trees[,id:=paste(company,company_plot_number,tree_number,sep="_")]
 trees_measurement[,id:=paste(company,company_plot_number,tree_number,sep="_")]
 
+# Change conver tree_location_id field if table is from older PGYI format
+if("tree_location_id"%in%names(trees)){
+  trees[,tree_location:=fcase(
+    tree_location_id==0,"U",
+    tree_location_id==1,"SU",
+    tree_location_id==2,"TP",
+    tree_location_id==3,"BP"
+  )]
+}
+
 # Report trees with no measurements or vice versa
 id_list <- unique(append(trees[,id],trees_measurement[,id]))
 trees_report <- data.table(id = id_list, error = as.character(NA))
