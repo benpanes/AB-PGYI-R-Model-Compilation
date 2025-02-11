@@ -31,8 +31,8 @@ ba <- pgyi_compiled %>%
 plotba <- ba %>%
   group_by(company, plot, mmt_num) %>%
   summarise(
-    age = first(age, na.rm = TRUE),
-    type = first(stand_type, na.rm = TRUE),                 # what is "type" here?
+    age = first(age, na_rm = TRUE),
+    type = first(stand_type, na_rm = TRUE),                 # what is "type" here?
     totba = sum(totba, na.rm = TRUE),
     conba = sum(conba, na.rm = TRUE),
     decba = sum(decba, na.rm = TRUE),
@@ -53,7 +53,7 @@ plotba <- ba %>%
     bwregden = sum(bwregden, na.rm = TRUE),
     firregden = sum(firregden, na.rm = TRUE),
     pbregden = sum(pbregden, na.rm = TRUE),
-    co_plot = first(co_plot, na.rm = TRUE)
+    co_plot = first(co_plot, na_rm = TRUE)
   ) %>%
   ungroup()%>%
   arrange(company, plot, mmt_num)
