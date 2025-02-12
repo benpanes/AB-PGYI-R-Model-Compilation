@@ -66,24 +66,24 @@ calc_volume <- function(table,spp="species",ht="height",dbh="dbh",natsub="natura
     }
   }
   dib <- function(a0,a1,a2,b1,b2,b3,b4,b5,dbh,dheight,ht,r=(dheight/ht)){
-    (a0*dbh^a1)*(a2^dbh)*((1-sqrt(0.2250)))^(b1*(r)^2+b2*log(r+0.001)+b3*sqrt(r)+b4*exp(r)+b5*dbh/ht)
+    (a0*dbh^a1)*(a2^dbh)*((1-sqrt(r))/(1-sqrt(0.2250)))^(b1*(r)^2+b2*log(r+0.001)+b3*sqrt(r)+b4*exp(r)+b5*dbh/ht)
   }
   fvol <- function(sl,stumpH,dbh,ht,a0,a1,a2,b1,b2,b3,b4,b5){
-    svol <- function(sl,d0,d1,d2){(2*sl/6)*((1/200)^2*pi)*(d0^2+4*d1^2+d2^2)}
+    svol <- function(sl,d0,d1,d2){(sl/6)*((1/200)^2*pi)*(d0^2+4*d1^2+d2^2)}
     v <- data.table()
     h0 <- stumpH
     d0 <- dib(a0,a1,a2,b1,b2,b3,b4,b5,dbh,stumpH,ht)
-    h1 <- h0+sl
+    h1 <- h0+sl/2
     d1 <- dib(a0,a1,a2,b1,b2,b3,b4,b5,dbh,h1,ht)
-    h2 <- h1+sl
+    h2 <- h1+sl/2
     d2 <- dib(a0,a1,a2,b1,b2,b3,b4,b5,dbh,h2,ht)
     v[,v1:=svol(sl,d0,d1,d2)]
-    for(n in 2:10){
+    for(n in 2:20){
       h0 <- h2
       d0 <- d2
-      h1 <- h0+sl
+      h1 <- h0+sl/2
       d1 <- dib(a0,a1,a2,b1,b2,b3,b4,b5,dbh,h1,ht)
-      h2 <- h1+sl
+      h2 <- h1+sl/2
       d2 <- dib(a0,a1,a2,b1,b2,b3,b4,b5,dbh,h2,ht)
       v[,paste0("v",n):=svol(sl,d0,d1,d2)]
     }
@@ -108,8 +108,8 @@ calc_volume <- function(table,spp="species",ht="height",dbh="dbh",natsub="natura
   }
   df <- copy(data.table(table))
   setnames(df,c(dbh,ht,spp,natsub),c("dbh","ht","spp","natsub"),skip_absent=T)
-  if(any(is.na(dbh) | is.na(ht))){
-    stop("Table contains missing height or DBH.")
+  if(any(is.na(df[,ht]))){
+    stop("Table contains missing heights.")
   }
   stumpH = 0.3
   df[,spp:=toupper(spp)]
@@ -161,8 +161,8 @@ calc_volume <- function(table,spp="species",ht="height",dbh="dbh",natsub="natura
          spp=="SW" &           natsub%in%c("ALP","SA","UF"),.(.(                                                           0.713393, 1.071533, 0.996067, 1.153679,  -0.283807, 2.022713,  -0.953783, 0.101608,  0.521645,  1.024172)),
          spp=="SW" &           natsub%in%c("MT","LF","FP"),.(.(                                                            0.862685, 0.993148, 0.998773, 1.135018,  -0.252377, 1.885321,  -0.921437, 0.150228,  0.536767,  1.0227))))]
   hr(df,topdib)
-  df[,dibs:=dib(a0,a1,a2,b1,b2,b3,b4,b5,dbh,stumpH,ht)]
-  df[,dobs:=k7+k8*dibs]
+  df[dbh>topdib,dibs:=dib(a0,a1,a2,b1,b2,b3,b4,b5,dbh,stumpH,ht)]
+  df[dbh>topdib,dobs:=k7+k8*dibs]
   if(merch=="total"){
     df[,mh:=ht*r0]
     df[,ml:=mh-stumpH]
